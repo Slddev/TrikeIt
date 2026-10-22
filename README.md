@@ -31,7 +31,7 @@ Cajurao, Yuan L.
 - Role: Presenter
 
 Demontaño, Sulpicio IV L.
-- GitHub: github.com/Slddev
+- GitHub: https://github.com/Slddev
 - Role: Developer & Team Lead
 
 Ilagan, Lea Antonette G.
