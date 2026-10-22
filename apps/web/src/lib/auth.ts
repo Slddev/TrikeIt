@@ -4,7 +4,7 @@ import { phoneNumber } from "better-auth/plugins";
 import { expo } from "@better-auth/expo";
 import { db } from "@trikeit/db";
 import { isValidPhoneNumber } from "@/lib/phone";
-import { sendSms } from "@/lib/sms";
+import { sendOtpSms } from "@/lib/sms";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
@@ -16,8 +16,7 @@ export const auth = betterAuth({
   },
   plugins: [
     phoneNumber({
-      sendOTP: ({ phoneNumber, code }) =>
-        sendSms(phoneNumber, `Your TrikeIt! code is ${code}. It expires in 5 minutes.`),
+      sendOTP: ({ phoneNumber, code }) => sendOtpSms(phoneNumber, code),
       phoneNumberValidator: isValidPhoneNumber,
       // Verifying a code for a new number creates the account; an existing one signs in.
       signUpOnVerification: {
