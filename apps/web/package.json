@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@better-auth/expo": "^1.7.12",
+    "@trikeit/db": "workspace:*",
+    "better-auth": "^1.7.12",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0"

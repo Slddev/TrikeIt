@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  transpilePackages: ["@trikeit/db"],
 };
 
 export default nextConfig;
