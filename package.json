@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev:web": "bun run --filter @trikeit/web dev",
-    "dev:mobile": "bun run --filter @trikeit/mobile start",
+    "dev:mobile": "bun run --filter @trikeit/mobile dev",
     "db:generate": "bun run --filter @trikeit/db generate",
     "db:migrate": "bun run --filter @trikeit/db migrate",
     "db:push": "bun run --filter @trikeit/db push",

@@ -4,4 +4,7 @@ node_modules
 .expo
 .next
 dist
-*.log
+*.log*.tsbuildinfo
+coverage
+.DS_Store
+Thumbs.db

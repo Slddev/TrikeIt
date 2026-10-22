@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  allowedDevOrigins: ["192.168.31.14"],
   transpilePackages: ["@trikeit/db"],
 };
 

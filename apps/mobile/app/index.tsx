@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { authClient } from '@/lib/auth-client';
 import { Link, Stack } from 'expo-router';
 import { MoonStarIcon, StarIcon, SunIcon } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -25,6 +26,7 @@ const IMAGE_STYLE: ImageStyle = {
 
 export default function Screen() {
   const { colorScheme } = useColorScheme();
+  const { data: session } = authClient.useSession();
 
   return (
     <>
@@ -51,6 +53,12 @@ export default function Screen() {
               <Icon as={StarIcon} />
             </Button>
           </Link>
+        </View>
+        <View className="items-center gap-2">
+          <Text className="text-sm text-muted-foreground">Signed in as {session?.user.name}</Text>
+          <Button variant="outline" onPress={() => authClient.signOut()}>
+            <Text>Sign out</Text>
+          </Button>
         </View>
       </View>
     </>
