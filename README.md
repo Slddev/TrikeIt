@@ -1,5 +1,4 @@
 # TrikeIt
-
 Try It Tricycle
 
 ## Brief Overview
