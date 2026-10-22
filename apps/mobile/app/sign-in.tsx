@@ -45,7 +45,10 @@ export default function SignInScreen() {
     if (!phone) return;
     setError(null);
     setPending(true);
-    const { error } = await authClient.phoneNumber.verify({ phoneNumber: phone, code: code.trim() });
+    const { error } = await authClient.phoneNumber.verify({
+      phoneNumber: phone,
+      code: code.trim(),
+    });
     setPending(false);
     if (error) setError(error.message ?? "That code didn't work. Please try again.");
   }
@@ -62,7 +65,9 @@ export default function SignInScreen() {
             <Text>Continue with Google</Text>
           </Button>
 
-          <Text className="text-center text-xs text-muted-foreground">or use your mobile number</Text>
+          <Text className="text-center text-xs text-muted-foreground">
+            or use your mobile number
+          </Text>
 
           <TextInput
             className={INPUT_CLASS}

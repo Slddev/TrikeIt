@@ -11,6 +11,7 @@
     "db:generate": "bun run --filter @trikeit/db generate",
     "db:migrate": "bun run --filter @trikeit/db migrate",
     "db:push": "bun run --filter @trikeit/db push",
-    "db:studio": "bun run --filter @trikeit/db studio"
+    "db:studio": "bun run --filter @trikeit/db studio",
+    "lint": "bun run --filter \"@trikeit/*\" lint"
   }
 }
