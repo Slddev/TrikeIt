@@ -1,13 +1,29 @@
 # TrikeIt
 
-## About The Project
+Try It Tricycle
 
-### The Problem
+## Brief Overview
 
-Standard delivery platforms (like Grab or Lalamove) charge high base fares that make hyper-local, low-value deliveries such as sending ₱100 worth of goods a few streets away economically unviable for neighborhood MSMEs.
+Standard delivery platforms charge high base fares that make hyper-local and low-value deliveries economically unviable for neighborhood MSMEs. Our goal is to connect local businesses with neighborhood tricycle drivers to unlock affordable micro-deliveries and boost driver income during off-peak hours.
 
-### Proposed Solution
+## Key Features
 
-Connecting local businesses with neighborhood tricycle drivers to unlock affordable micro-deliveries and boost driver income during off-peak hours.
+### Smart Matching & Delivery
+
+1. Route-Based Barangay Dispatching
+   Uses mapped routes and assigned TODA zones across Metro Manila barangays to automatically match nearby MSME orders with the right local tricycle driver.
+2. Dual Passenger & Parcel Carrying (Pasabay Delivery)
+   Allows drivers to accept micro-deliveries along their route while carrying regular passengers, maximizing driver income per trip without disrupting passenger service.
+3. Multi-Stop Drop-Offs
+   Automatically batches multiple neighborhood orders heading in the same direction, reducing delivery costs for stores and saving travel time for drivers.
+
+### Payment & Merchant Tools
+
+1. Flexible Payment System
+   Supports both cash-on-delivery (COD) and popular cashless payments (GCash, Maya) to ensure smooth transactions for all customers and instant payouts for drivers.
+2. Simple MSME Dashboard
+   Displays a clean overview of delivery history, completed orders, and spent costs, helping small business owners easily track expenses and peak delivery times.
+
+## Team & Roles
 
 ## BUILT FOR CSSPRINT 2026, TEAM ONES
