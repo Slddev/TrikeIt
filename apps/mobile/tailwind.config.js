@@ -7,7 +7,21 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      // Poppins weights are separate font files, so each weight is its own family.
+      fontFamily: {
+        poppins: ['Poppins_400Regular'],
+        'poppins-medium': ['Poppins_500Medium'],
+        'poppins-semibold': ['Poppins_600SemiBold'],
+        'poppins-bold': ['Poppins_700Bold'],
+      },
       colors: {
+        brand: {
+          yellow: '#FFE891',
+          gold: '#EAD36F',
+          cream: '#FFF8E4',
+          navy: '#0B0F3F',
+          'navy-soft': '#2A2F63',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
