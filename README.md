@@ -26,4 +26,20 @@ Standard delivery platforms charge high base fares that make hyper-local and low
 
 ## Team & Roles
 
+Cajurao, Yuan L.
+- GitHub: https://github.com/tsjbv52cg5-bit
+- Role: Presenter
+
+Demontaño, Sulpicio IV L.
+- GitHub: github.com/Slddev
+- Role: Developer & Team Lead
+
+Ilagan, Lea Antonette G.
+- GitHub: https://github.com/soleiia
+- Role: Designer
+
+Sebastian, Kristia Angela M.
+- GitHub: https://github.com/kuyikuli
+- Role: Presenter & Researcher
+
 ## BUILT FOR CSSPRINT 2026, TEAM ONES
