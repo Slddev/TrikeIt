@@ -4,7 +4,7 @@ Try It Tricycle
 
 ## Brief Overview
 
-Standard delivery platforms charge high base fares that make hyper-local and low-value deliveries economically unviable for neighborhood MSMEs. Our goal is to connect local businesses with neighborhood tricycle drivers to unlock affordable micro-deliveries and boost driver income during off-peak hours.
+Standard delivery platforms charge high base fares, making hyper-local and low-value deliveries economically unviable for neighborhood MSMEs. Our goal is to connect local businesses with neighborhood tricycle drivers to unlock affordable micro-deliveries and boost driver income during off-peak hours.
 
 ## Key Features
 
