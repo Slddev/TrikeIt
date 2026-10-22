@@ -32,11 +32,11 @@ Cajurao, Yuan L.
 
 Demontaño, Sulpicio IV L.
 - GitHub: https://github.com/Slddev
-- Role: Developer & Team Lead
+- Role: Backend Developer & Team Lead
 
 Ilagan, Lea Antonette G.
 - GitHub: https://github.com/soleiia
-- Role: Designer
+- Role: Frontend Developer & Designer
 
 Sebastian, Kristia Angela M.
 - GitHub: https://github.com/kuyikuli
