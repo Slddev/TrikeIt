@@ -1,5 +1,6 @@
 import { BuySlotsCard } from '@/components/booking/buy-slots-card';
 import { DriverCard } from '@/components/booking/driver-card';
+import { StatusHero } from '@/components/booking/status-hero';
 import { SlotMeter } from '@/components/booking/slot-meter';
 import { Gradient } from '@/components/brand/gradient';
 import { StopDot } from '@/components/brand/stop-dot';
@@ -159,41 +160,39 @@ function StatusCard({
   switch (trip.status) {
     case 'filling':
       return (
-        <Card
-          title={order ? 'Waiting for a trike…' : 'Batching your parcel'}
-          body={`Your ${order ? 'order' : 'parcel'} goes out once ${trip.capacity} slots heading your way are booked.`}>
-          <SlotMeter filled={trip.slotsFilled} capacity={trip.capacity} />
-          {booking.buyout && <BuySlotsCard buyout={booking.buyout} busy={busy} onBuy={onBuy} />}
-        </Card>
+        <>
+          <StatusHero variant="waiting" label="Waiting for a trike…" />
+          <Card
+            body={`Your ${order ? 'order' : 'parcel'} goes out once ${trip.capacity} slots heading your way are booked.`}>
+            <SlotMeter filled={trip.slotsFilled} capacity={trip.capacity} />
+            {booking.buyout && <BuySlotsCard buyout={booking.buyout} busy={busy} onBuy={onBuy} />}
+          </Card>
+        </>
       );
     case 'ready':
       return (
-        <Card
-          title={order ? 'Waiting for a trike…' : 'Finding a rider'}
-          body="Your trip has been sent to approved riders nearby.">
-          <ActivityIndicator color="#0B0F3F" />
-        </Card>
+        <>
+          <StatusHero variant="waiting" label="Waiting for a trike…" />
+          <Card body="Your trip has been sent to approved riders nearby." />
+        </>
       );
     case 'accepted':
     case 'in_progress':
       return (
-        <Card
-          title={
-            booking.pickedUp
-              ? 'Out for delivery'
-              : order
-                ? 'Found your rider!'
-                : 'Rider on the way to pick up'
-          }
-          body={
-            booking.pickedUp
-              ? `Heading to ${booking.recipient.name} at the drop-off.`
-              : order
-                ? `They're picking up your order at ${order.merchantName}. Have ₱${owed} in cash ready.`
-                : 'Have the parcel ready at the pick-up point. The rider may collect others first.'
-          }>
-          {booking.driver && <DriverCard driver={booking.driver} />}
-        </Card>
+        <>
+          {!booking.pickedUp && <StatusHero variant="found" label="Found your rider!" />}
+          <Card
+            title={booking.pickedUp ? 'Out for delivery' : undefined}
+            body={
+              booking.pickedUp
+                ? `Heading to ${booking.recipient.name} at the drop-off.`
+                : order
+                  ? `They're picking up your order at ${order.merchantName}. Have ₱${owed} in cash ready.`
+                  : 'Have the parcel ready at the pick-up point. The rider may collect others first.'
+            }>
+            {booking.driver && <DriverCard driver={booking.driver} />}
+          </Card>
+        </>
       );
     default:
       return <Card title="Trip ended" body="This trip is no longer active." />;
@@ -281,14 +280,15 @@ function Card({
   body,
   children,
 }: {
-  title: string;
+  // Left out under a StatusHero, whose caption already says it.
+  title?: string;
   body: string;
   children?: React.ReactNode;
 }) {
   return (
     <View className="gap-4 rounded-3xl bg-white p-5">
       <View className="gap-1">
-        <Text className="font-poppins-bold text-2xl text-brand-navy">{title}</Text>
+        {title && <Text className="font-poppins-bold text-2xl text-brand-navy">{title}</Text>}
         <Text className="font-poppins text-sm text-brand-navy/70">{body}</Text>
       </View>
       {children}
