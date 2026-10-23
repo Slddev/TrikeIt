@@ -1,4 +1,5 @@
 import "server-only";
+import { del } from "@vercel/blob";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { booking, db, menuItem, merchant, trip, user } from "@trikeit/db";
@@ -150,6 +151,27 @@ export async function ensureMerchant(ownerId: string) {
     .onConflictDoNothing({ target: merchant.ownerId });
 }
 
+export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Deletes photos the store uploaded to Vercel Blob once nothing uses them. Links to other sites,
+ * or to another store's uploads, are left alone.
+ */
+async function deleteUploads(merchantId: string, urls: (string | null | undefined)[]) {
+  const ours = urls.filter((url): url is string => {
+    if (!url) return false;
+    const { hostname, pathname } = new URL(url);
+    return hostname.endsWith(".blob.vercel-storage.com") && pathname.startsWith(`/merchants/${merchantId}/`);
+  });
+  if (!ours.length) return;
+  try {
+    await del(ours);
+  } catch (error) {
+    console.error("Couldn't delete replaced photos", error);
+  }
+}
+
 const imageUrl = z.union([z.literal(""), z.url({ protocol: /^https$/, error: "Image links must start with https://" })]);
 
 // Hidden form fields submit "" when unset, which z.coerce would turn into 0.
@@ -178,10 +200,17 @@ export const storeInput = z
   });
 
 export async function updateStore(ownerId: string, input: z.infer<typeof storeInput>) {
+  const before = await getOwnMerchant(ownerId);
   await db
     .update(merchant)
     .set({ ...input, phone: input.phone!, lng: input.lng ?? null, lat: input.lat ?? null })
     .where(eq(merchant.ownerId, ownerId));
+  if (before) {
+    await deleteUploads(before.id, [
+      before.coverUrl !== input.coverUrl ? before.coverUrl : null,
+      before.logoUrl !== input.logoUrl ? before.logoUrl : null,
+    ]);
+  }
 }
 
 export const itemInput = z.object({
@@ -199,10 +228,15 @@ export async function saveItem(ownerId: string, input: z.infer<typeof itemInput>
   if (!store) throw new ApiError(403, "You don't have a store.");
   const { id, ...values } = input;
   if (id) {
+    const [before] = await db
+      .select({ imageUrl: menuItem.imageUrl })
+      .from(menuItem)
+      .where(and(eq(menuItem.id, id), eq(menuItem.merchantId, store.id)));
     await db
       .update(menuItem)
       .set(values)
       .where(and(eq(menuItem.id, id), eq(menuItem.merchantId, store.id)));
+    if (before && before.imageUrl !== values.imageUrl) await deleteUploads(store.id, [before.imageUrl]);
   } else {
     await db.insert(menuItem).values({ ...values, merchantId: store.id });
   }
@@ -211,7 +245,11 @@ export async function saveItem(ownerId: string, input: z.infer<typeof itemInput>
 export async function deleteItem(ownerId: string, itemId: string) {
   const store = await getOwnMerchant(ownerId);
   if (!store) throw new ApiError(403, "You don't have a store.");
-  await db.delete(menuItem).where(and(eq(menuItem.id, itemId), eq(menuItem.merchantId, store.id)));
+  const removed = await db
+    .delete(menuItem)
+    .where(and(eq(menuItem.id, itemId), eq(menuItem.merchantId, store.id)))
+    .returning({ imageUrl: menuItem.imageUrl });
+  await deleteUploads(store.id, removed.map((r) => r.imageUrl));
 }
 
 export function listItems(merchantId: string) {

@@ -67,7 +67,7 @@ export async function MerchantConsole({ ownerId }: { ownerId: string }) {
             Featured items get their own list in the app; the rest show under “For You”.
           </p>
         </div>
-        <MenuEditor items={items} />
+        <MenuEditor items={items} uploadFolder={`merchants/${store.id}/`} />
       </section>
 
       <section className="flex flex-col gap-4">
@@ -80,6 +80,7 @@ export async function MerchantConsole({ ownerId }: { ownerId: string }) {
         <StoreForm
           // Remount after a save so the form starts from the stored values.
           key={store.updatedAt.toISOString()}
+          uploadFolder={`merchants/${store.id}/`}
           store={{
             name: store.name,
             description: store.description,

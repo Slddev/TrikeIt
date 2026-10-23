@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useActionState, useState, useTransition } from "react";
 import { removeMenuItem, saveMenuItem, type FormState } from "./merchant-actions";
+import { ImageUpload } from "./image-upload";
 import { field, primary } from "./store-form";
 
 type Item = {
@@ -15,7 +16,7 @@ type Item = {
   available: boolean;
 };
 
-export function MenuEditor({ items }: { items: Item[] }) {
+export function MenuEditor({ items, uploadFolder }: { items: Item[]; uploadFolder: string }) {
   const [adding, setAdding] = useState(false);
 
   return (
@@ -25,11 +26,15 @@ export function MenuEditor({ items }: { items: Item[] }) {
       )}
       <ul className="flex flex-col gap-3">
         {items.map((item) => (
-          <ItemRow key={`${item.id}-${item.name}-${item.price}-${item.featured}-${item.available}`} item={item} />
+          <ItemRow
+            key={`${item.id}-${item.name}-${item.price}-${item.featured}-${item.available}-${item.imageUrl}`}
+            item={item}
+            uploadFolder={uploadFolder}
+          />
         ))}
       </ul>
       {adding ? (
-        <ItemForm onDone={() => setAdding(false)} />
+        <ItemForm uploadFolder={uploadFolder} onDone={() => setAdding(false)} />
       ) : (
         <button onClick={() => setAdding(true)} className={`${primary} self-start`}>
           Add item
@@ -39,11 +44,11 @@ export function MenuEditor({ items }: { items: Item[] }) {
   );
 }
 
-function ItemRow({ item }: { item: Item }) {
+function ItemRow({ item, uploadFolder }: { item: Item; uploadFolder: string }) {
   const [editing, setEditing] = useState(false);
   const [removing, startRemove] = useTransition();
 
-  if (editing) return <ItemForm item={item} onDone={() => setEditing(false)} />;
+  if (editing) return <ItemForm item={item} uploadFolder={uploadFolder} onDone={() => setEditing(false)} />;
 
   return (
     <li className="flex items-center gap-4 rounded-2xl bg-white p-3 sm:p-4">
@@ -73,7 +78,7 @@ function ItemRow({ item }: { item: Item }) {
   );
 }
 
-function ItemForm({ item, onDone }: { item?: Item; onDone: () => void }) {
+function ItemForm({ item, uploadFolder, onDone }: { item?: Item; uploadFolder: string; onDone: () => void }) {
   const [state, action, pending] = useActionState<FormState, FormData>(async (prev, formData) => {
     const result = await saveMenuItem(prev, formData);
     if (result.saved) onDone();
@@ -96,10 +101,9 @@ function ItemForm({ item, onDone }: { item?: Item; onDone: () => void }) {
           Description
           <input name="description" defaultValue={item?.description} className={field} />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium sm:col-span-2">
-          Photo link
-          <input name="imageUrl" type="url" defaultValue={item?.imageUrl} placeholder="https://…" className={field} />
-        </label>
+        <div className="sm:col-span-2">
+          <ImageUpload name="imageUrl" label="Photo" folder={uploadFolder} defaultValue={item?.imageUrl} />
+        </div>
       </div>
       <div className="flex flex-wrap gap-5 text-sm font-medium">
         <label className="flex items-center gap-2">
@@ -130,6 +134,6 @@ function ItemForm({ item, onDone }: { item?: Item; onDone: () => void }) {
 
 function Thumb({ url }: { url: string }) {
   if (!url) return <div className="h-16 w-16 shrink-0 rounded-xl bg-brand-cream" />;
-  // Merchants link photos from anywhere, so they're shown as-is rather than through the optimizer.
+  // Older items may link to photos on other sites, so photos skip the optimizer's allowed-host list.
   return <Image src={url} alt="" width={64} height={64} unoptimized className="h-16 w-16 shrink-0 rounded-xl object-cover" />;
 }

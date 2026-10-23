@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { ImageUpload } from "./image-upload";
 import { saveStore, type FormState } from "./merchant-actions";
 
 export const field =
@@ -46,7 +47,7 @@ async function photon(path: string, params: Record<string, string>, signal?: Abo
   return data.features.map(toPlace);
 }
 
-export function StoreForm({ store }: { store: Store }) {
+export function StoreForm({ store, uploadFolder }: { store: Store; uploadFolder: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveStore, {});
   const [place, setPlace] = useState<Place | null>(
     store.lng !== null && store.lat !== null
@@ -77,15 +78,9 @@ export function StoreForm({ store }: { store: Store }) {
       <input type="hidden" name="lng" value={place?.lng ?? ""} />
       <input type="hidden" name="lat" value={place?.lat ?? ""} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          Cover photo link
-          <input name="coverUrl" type="url" defaultValue={store.coverUrl} placeholder="https://…" className={field} />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          Logo link
-          <input name="logoUrl" type="url" defaultValue={store.logoUrl} placeholder="https://…" className={field} />
-        </label>
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+        <ImageUpload name="coverUrl" label="Cover photo" shape="wide" folder={uploadFolder} defaultValue={store.coverUrl} />
+        <ImageUpload name="logoUrl" label="Logo" folder={uploadFolder} defaultValue={store.logoUrl} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
