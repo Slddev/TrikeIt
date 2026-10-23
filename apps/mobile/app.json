@@ -18,7 +18,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFEA93"
       },
-      "package": "com.trikeit.mobile"
+      "package": "com.trikeit.mobile",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",

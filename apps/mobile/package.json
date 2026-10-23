@@ -9,7 +9,8 @@
     "ios:device": "expo run:ios --device",
     "web": "expo run:web",
     "clean": "rm -rf .expo node_modules",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:apk": "node scripts/build-apk.mjs"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.12",
