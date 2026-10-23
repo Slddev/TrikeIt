@@ -15,6 +15,18 @@ if (demoOtpCode) {
   console.warn("[auth] Demo mode is on: SMS is disabled and every phone number accepts DEMO_OTP_CODE.");
 }
 
+// Requests must come from BETTER_AUTH_URL or a trusted origin. On Vercel the same build is also
+// served at its *.vercel.app addresses, so those are trusted too.
+function vercelOrigins() {
+  return [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]
+    .filter(Boolean)
+    .map((host) => `https://${host}`);
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
   socialProviders: {
@@ -46,7 +58,14 @@ export const auth = betterAuth({
   trustedOrigins: [
     "trikeit://",
     "exp://",
-  ],
+    ...vercelOrigins(),
+    // Comma-separated extra sites, e.g. the www. version of a custom domain.
+    ...(process.env.TRUSTED_ORIGINS ?? "").split(",").map((o) => o.trim()),
+    // Lets `next dev` be opened from 127.0.0.1 or another device on the same network.
+    ...(process.env.NODE_ENV === "development"
+      ? ["http://localhost:*", "http://127.0.0.1:*", "http://192.168.*.*:*", "http://10.*.*.*:*"]
+      : []),
+  ].filter(Boolean),
   user: {
     additionalFields: {
       role: { type: "string", defaultValue: "customer", input: false },
