@@ -1,9 +1,15 @@
 import { Gradient } from '@/components/brand/gradient';
 import { Logo } from '@/components/brand/logo';
+import { RouteMap } from '@/components/brand/route-map';
+import { StopDot } from '@/components/brand/stop-dot';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { authClient } from '@/lib/auth-client';
+import { useBooking, type Stop } from '@/lib/booking';
+import { distanceKm, type Place } from '@/lib/places';
+import { getRoute, type Route } from '@/lib/routing';
 import { cn } from '@/lib/utils';
+import { router } from 'expo-router';
 import {
   BanknoteIcon,
   ChevronDownIcon,
@@ -16,18 +22,29 @@ import {
   ZapIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
-import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Tab = 'delivery' | 'merchants';
 type Service = 'express' | 'regular';
 type Payment = 'cod' | 'online';
 
-// Placeholder fares until pricing comes from the API.
-const SERVICES: Record<Service, { title: string; blurb: string; eta: string; fare: number }> = {
-  express: { title: 'Express', blurb: 'Straight to drop-off', eta: '15–25 min', fare: 100 },
-  regular: { title: 'Regular', blurb: 'May share the trike', eta: '30–60 min', fare: 70 },
+const SERVICES: Record<Service, { title: string; blurb: string; eta: string }> = {
+  express: { title: 'Express', blurb: 'Straight to drop-off', eta: '15–25 min' },
+  regular: { title: 'Regular', blurb: 'May share the trike', eta: '30–60 min' },
 };
+
+// Regular fare: ₱12 for the first km, then ₱12 for each succeeding km or fraction of one.
+// Express is 4x the regular fare. Distance is by road (see useTrip).
+const REGULAR_FIRST_KM = 12;
+const REGULAR_PER_SUCCEEDING_KM = 12;
+const EXPRESS_MULTIPLIER = 4;
+
+function fareFor(service: Service, km: number) {
+  const succeedingKm = Math.max(0, Math.ceil(km - 1));
+  const regular = REGULAR_FIRST_KM + REGULAR_PER_SUCCEEDING_KM * succeedingKm;
+  return service === 'express' ? regular * EXPRESS_MULTIPLIER : regular;
+}
 
 export default function HomeScreen() {
   const [tab, setTab] = React.useState<Tab>('delivery');
@@ -47,10 +64,14 @@ function Header() {
   const { data: session } = authClient.useSession();
 
   function onProfile() {
-    Alert.alert(session?.user.name || 'Your account', session?.user.phoneNumber ?? session?.user.email, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => authClient.signOut() },
-    ]);
+    Alert.alert(
+      session?.user.name || 'Your account',
+      session?.user.phoneNumber ?? session?.user.email,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign out', style: 'destructive', onPress: () => authClient.signOut() },
+      ]
+    );
   }
 
   return (
@@ -89,7 +110,11 @@ function TabSwitcher({ value, onChange }: { value: Tab; onChange: (tab: Tab) => 
               'flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-3.5',
               active ? 'bg-brand-navy' : 'bg-brand-cream'
             )}>
-            <Icon as={icon} size={20} className={active ? 'text-brand-yellow' : 'text-brand-navy'} />
+            <Icon
+              as={icon}
+              size={20}
+              className={active ? 'text-brand-yellow' : 'text-brand-navy'}
+            />
             <Text
               className={cn(
                 'font-poppins-semibold text-base',
@@ -104,18 +129,48 @@ function TabSwitcher({ value, onChange }: { value: Tab; onChange: (tab: Tab) => 
   );
 }
 
+type Trip =
+  | { status: 'incomplete' }
+  | { status: 'routing' }
+  | { status: 'ready'; km: number; route: Route | null };
+
+/** Road distance between the stops; falls back to straight-line if routing fails (route is null). */
+function useTrip(pickup: Place | null, dropoff: Place | null): Trip {
+  const [found, setFound] = React.useState<{ key: string; route: Route | null } | null>(null);
+  const key = pickup && dropoff ? `${pickup.coords}|${dropoff.coords}` : null;
+
+  React.useEffect(() => {
+    if (!pickup || !dropoff) return;
+    const tripKey = `${pickup.coords}|${dropoff.coords}`;
+    const controller = new AbortController();
+    getRoute(pickup.coords, dropoff.coords, controller.signal)
+      .then((route) => setFound({ key: tripKey, route }))
+      .catch(() => !controller.signal.aborted && setFound({ key: tripKey, route: null }));
+    return () => controller.abort();
+  }, [pickup, dropoff]);
+
+  if (!pickup || !dropoff) return { status: 'incomplete' };
+  if (found?.key !== key) return { status: 'routing' };
+  return {
+    status: 'ready',
+    route: found.route,
+    km: found.route?.km ?? distanceKm(pickup.coords, dropoff.coords),
+  };
+}
+
 function DeliveryTab() {
-  const [pickup, setPickup] = React.useState('');
-  const [dropoff, setDropoff] = React.useState('');
+  const { pickup, dropoff } = useBooking();
   const [service, setService] = React.useState<Service | null>(null);
   const [payment, setPayment] = React.useState<Payment>('cod');
 
-  const ready = pickup.trim() && dropoff.trim() && service;
+  const trip = useTrip(pickup, dropoff);
+  const km = trip.status === 'ready' ? trip.km : null;
 
   return (
     <View className="flex-1">
-      <ScrollView contentContainerClassName="gap-6 px-6 pb-6 pt-4" keyboardShouldPersistTaps="handled">
-        <RouteCard pickup={pickup} dropoff={dropoff} onPickup={setPickup} onDropoff={setDropoff} />
+      <ScrollView contentContainerClassName="gap-6 px-6 pb-6 pt-4">
+        <RouteCard pickup={pickup} dropoff={dropoff} trip={trip} />
+        {trip.status === 'ready' && trip.route && <RouteMap route={trip.route} />}
 
         <View className="gap-3">
           <Text className="font-poppins-semibold text-base text-brand-navy">Choose a service</Text>
@@ -123,6 +178,7 @@ function DeliveryTab() {
             <ServiceOption
               key={key}
               service={key}
+              fare={km === null ? null : fareFor(key, km)}
               selected={service === key}
               onPress={() => setService(key)}
             />
@@ -130,7 +186,14 @@ function DeliveryTab() {
         </View>
       </ScrollView>
 
-      {ready && <CheckoutPanel service={service} payment={payment} onPayment={setPayment} />}
+      {km !== null && service && (
+        <CheckoutPanel
+          service={service}
+          fare={fareFor(service, km)}
+          payment={payment}
+          onPayment={setPayment}
+        />
+      )}
     </View>
   );
 }
@@ -138,20 +201,18 @@ function DeliveryTab() {
 function RouteCard({
   pickup,
   dropoff,
-  onPickup,
-  onDropoff,
+  trip,
 }: {
-  pickup: string;
-  dropoff: string;
-  onPickup: (v: string) => void;
-  onDropoff: (v: string) => void;
+  pickup: Place | null;
+  dropoff: Place | null;
+  trip: Trip;
 }) {
   return (
     <View className="gap-3 rounded-3xl bg-brand-navy p-4">
       <View className="rounded-2xl bg-white px-4">
-        <RouteField dot="pickup" placeholder="Pick-up location" value={pickup} onChangeText={onPickup} />
+        <RouteField stop="pickup" place={pickup} placeholder="Set pick-up location" />
         <View className="ml-[7px] h-3 w-0.5 bg-brand-navy/20" />
-        <RouteField dot="dropoff" placeholder="Drop-off location" value={dropoff} onChangeText={onDropoff} />
+        <RouteField stop="dropoff" place={dropoff} placeholder="Set drop-off location" />
       </View>
 
       <View className="flex-row items-center justify-between">
@@ -159,6 +220,7 @@ function RouteCard({
           <Icon as={PlusIcon} size={16} className="text-brand-yellow" />
           <Text className="font-poppins-medium text-sm text-brand-yellow">Add stop</Text>
         </Pressable>
+        <TripSummary trip={trip} />
         <Pressable className="flex-row items-center gap-1.5 rounded-full bg-brand-yellow px-3 py-2 active:opacity-80">
           <Icon as={ClockIcon} size={16} className="text-brand-navy" />
           <Text className="font-poppins-medium text-sm text-brand-navy">Deliver now</Text>
@@ -169,37 +231,66 @@ function RouteCard({
   );
 }
 
-function RouteField({
-  dot,
-  ...props
-}: { dot: 'pickup' | 'dropoff' } & React.ComponentProps<typeof TextInput>) {
+function TripSummary({ trip }: { trip: Trip }) {
+  if (trip.status === 'incomplete') return null;
+  if (trip.status === 'routing') return <ActivityIndicator color="#FFE891" />;
   return (
-    <View className="h-14 flex-row items-center gap-3">
-      <View
-        className={cn(
-          'h-4 w-4 rounded-full border-4',
-          dot === 'pickup' ? 'border-brand-gold bg-white' : 'border-brand-navy bg-brand-navy'
+    <Text className="font-poppins-medium text-sm text-brand-yellow">
+      {trip.route
+        ? `${trip.km.toFixed(1)} km · ${trip.route.minutes} min`
+        : `≈ ${trip.km.toFixed(1)} km (est.)`}
+    </Text>
+  );
+}
+
+function RouteField({
+  stop,
+  place,
+  placeholder,
+}: {
+  stop: Stop;
+  place: Place | null;
+  placeholder: string;
+}) {
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/pick-location', params: { stop } })}
+      accessibilityRole="button"
+      accessibilityLabel={place ? `${placeholder}: ${place.title}` : placeholder}
+      className="min-h-14 flex-row items-center gap-3 py-2 active:opacity-70">
+      <StopDot stop={stop} />
+      <View className="flex-1">
+        {place ? (
+          <>
+            <Text className="font-poppins-medium text-base text-brand-navy" numberOfLines={1}>
+              {place.title}
+            </Text>
+            {!!place.subtitle && (
+              <Text className="font-poppins text-xs text-brand-navy/60" numberOfLines={1}>
+                {place.subtitle}
+              </Text>
+            )}
+          </>
+        ) : (
+          <Text className="font-poppins text-base text-brand-navy/50">{placeholder}</Text>
         )}
-      />
-      <TextInput
-        placeholderTextColor="#0B0F3F80"
-        className="h-full flex-1 font-poppins text-base text-brand-navy"
-        {...props}
-      />
-    </View>
+      </View>
+    </Pressable>
   );
 }
 
 function ServiceOption({
   service,
+  fare,
   selected,
   onPress,
 }: {
   service: Service;
+  fare: number | null;
   selected: boolean;
   onPress: () => void;
 }) {
-  const { title, blurb, eta, fare } = SERVICES[service];
+  const { title, blurb, eta } = SERVICES[service];
   return (
     <Pressable
       onPress={onPress}
@@ -226,17 +317,21 @@ function ServiceOption({
           {blurb} · {eta}
         </Text>
       </View>
-      <Text className="font-poppins-bold text-base text-brand-navy">₱{fare}</Text>
+      <Text className="font-poppins-bold text-base text-brand-navy">
+        {fare === null ? '₱ —' : `₱${fare}`}
+      </Text>
     </Pressable>
   );
 }
 
 function CheckoutPanel({
   service,
+  fare,
   payment,
   onPayment,
 }: {
   service: Service;
+  fare: number;
   payment: Payment;
   onPayment: (p: Payment) => void;
 }) {
@@ -274,7 +369,7 @@ function CheckoutPanel({
           <Text className="font-poppins text-sm text-brand-navy/60">
             {SERVICES[service].title} delivery
           </Text>
-          <Text className="font-poppins-bold text-2xl text-brand-navy">₱{SERVICES[service].fare}</Text>
+          <Text className="font-poppins-bold text-2xl text-brand-navy">₱{fare}</Text>
         </View>
         <Pressable className="h-14 items-center justify-center rounded-2xl bg-brand-navy px-10 active:opacity-90">
           <Text className="font-poppins-semibold text-base text-brand-yellow">Book</Text>
