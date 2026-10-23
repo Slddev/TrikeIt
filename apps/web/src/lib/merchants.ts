@@ -4,7 +4,7 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { booking, db, menuItem, merchant, trip, user } from "@trikeit/db";
 import { ApiError } from "@/lib/api";
-import { createBooking, createBookingInput } from "@/lib/bookings";
+import { bookingPlace, createBooking } from "@/lib/bookings";
 import { distanceKm, type LngLat } from "@/lib/geo";
 import { isValidPhoneNumber, normalizePhoneNumber } from "@/lib/phone";
 
@@ -88,7 +88,7 @@ export const placeOrderInput = z.object({
     )
     .min(1)
     .max(30),
-  dropoff: createBookingInput.shape.dropoff,
+  dropoff: bookingPlace,
 });
 
 /** Books a delivery from the store to the customer; the customer pays for everything in cash on delivery. */
@@ -123,6 +123,7 @@ export async function placeOrder(userId: string, input: z.infer<typeof placeOrde
         contact: { name: store.name, phone: storePhone },
       },
       dropoff: input.dropoff,
+      extraDropoffs: [],
       payment: "cod",
       payer: "recipient",
       parcelNotes: "",

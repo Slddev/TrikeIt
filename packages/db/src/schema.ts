@@ -100,6 +100,17 @@ export const menuItem = pgTable(
 // Copied onto the booking when ordered, so later menu edits don't change past orders.
 export type OrderItem = { itemId: string; name: string; price: number; qty: number; note: string };
 
+// Drop-offs after the first, in the order the sender listed them.
+export type ExtraDropoff = {
+  lng: number;
+  lat: number;
+  title: string;
+  subtitle: string;
+  recipientName: string;
+  recipientPhone: string;
+  droppedOffAt: string | null;
+};
+
 export type TripKind = "regular" | "special";
 // filling: regular trip waiting for slots · ready: full, shown to riders ·
 // accepted: rider heading to pick-ups · in_progress: out for delivery · completed / cancelled.
@@ -119,6 +130,8 @@ export const trip = pgTable(
     anchorPickupLat: doublePrecision("anchor_pickup_lat").notNull(),
     anchorDropoffLng: doublePrecision("anchor_dropoff_lng").notNull(),
     anchorDropoffLat: doublePrecision("anchor_dropoff_lat").notNull(),
+    // Pick-up slot for scheduled trips; riders only see them shortly before. Null means now.
+    scheduledFor: timestamp("scheduled_for"),
     driverId: text("driver_id").references(() => user.id),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     readyAt: timestamp("ready_at"),
@@ -164,6 +177,8 @@ export const booking = pgTable(
     merchantId: uuid("merchant_id").references(() => merchant.id),
     items: jsonb("items").$type<OrderItem[]>().notNull().default([]),
     itemsTotal: integer("items_total").notNull().default(0),
+    extraDropoffs: jsonb("extra_dropoffs").$type<ExtraDropoff[]>().notNull().default([]),
+    scheduledFor: timestamp("scheduled_for"),
     distanceKm: doublePrecision("distance_km").notNull(),
     // Pesos for one slot; the booking pays slotFare * slots.
     slotFare: integer("slot_fare").notNull(),

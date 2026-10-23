@@ -6,7 +6,8 @@ export async function POST(request: Request) {
     const user = await requireApiUser(request);
     const input = createBookingInput.safeParse(await request.json().catch(() => null));
     if (!input.success) {
-      throw new ApiError(400, "Please check the pick-up and drop-off details and contacts.");
+      const rule = input.error.issues.find((issue) => issue.path.length === 0);
+      throw new ApiError(400, rule?.message ?? "Please check the pick-up and drop-off details and contacts.");
     }
     if (input.data.payer === "recipient" && input.data.payment !== "cod") {
       throw new ApiError(400, "When the recipient pays, it's cash on delivery.");

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, isNull, notExists } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, notExists, or } from "drizzle-orm";
 import { z } from "zod";
 import { booking, db, driver, trip, tripDecline, user } from "@trikeit/db";
 import { ApiError } from "@/lib/api";
@@ -10,6 +10,12 @@ import { distanceKm, type LngLat } from "@/lib/geo";
 const SERVICE_RADIUS_KM = 3;
 // How close the driver must be to confirm a pick-up or drop-off. Allows for GPS drift.
 const ARRIVAL_RADIUS_KM = 0.15;
+export const DISPATCH_LEAD_MINUTES = 30;
+
+/** Trips riders may see now: unscheduled ones, and scheduled ones whose pick-up is coming up. */
+function dispatchable() {
+  return or(isNull(trip.scheduledFor), lte(trip.scheduledFor, new Date(Date.now() + DISPATCH_LEAD_MINUTES * 60_000)));
+}
 
 const OUTSIDE_PH =
   "Your phone reports a location outside the Philippines. On an emulator, set its location to somewhere in the Philippines.";
@@ -68,6 +74,7 @@ export async function listDriverTrips(driverId: string, at?: DriverLocation) {
     .where(
       and(
         eq(trip.status, "ready"),
+        dispatchable(),
         notExists(
           db
             .select()
@@ -97,7 +104,7 @@ export async function acceptTrip(driverId: string, tripId: string, at: DriverLoc
     .limit(1);
   if (active) throw new ApiError(409, "Finish your current trip first.");
 
-  const [candidate] = await db.select().from(trip).where(eq(trip.id, tripId)).limit(1);
+  const [candidate] = await db.select().from(trip).where(and(eq(trip.id, tripId), dispatchable())).limit(1);
   const [view] = candidate ? await toDriverTrips([candidate], { withContact: false }) : [];
   if (!view || !withinReach(view, at)) {
     throw new ApiError(409, "This trip is outside your area.");
@@ -131,22 +138,40 @@ export async function confirmPickup(driverId: string, tripId: string, bookingId:
   return listDriverTrips(driverId, at);
 }
 
-/** Confirms a parcel was delivered; the rider must be at its drop-off point. */
-export async function confirmDropoff(driverId: string, tripId: string, bookingId: string, at: DriverLocation) {
+/**
+ * Confirms a parcel was delivered; the rider must be at the drop-off point. `stopIndex` 0 is the
+ * booking's first drop-off and 1 onwards its extra ones. The booking completes with its last one.
+ */
+export async function confirmDropoff(
+  driverId: string,
+  tripId: string,
+  bookingId: string,
+  stopIndex: number,
+  at: DriverLocation,
+) {
   const { stop } = await getStop(driverId, tripId, bookingId);
   if (!stop.pickedUpAt) throw new ApiError(409, "Pick up this parcel first.");
-  if (stop.droppedOffAt) throw new ApiError(409, "Already delivered.");
-  assertArrived(at, [stop.dropoffLng, stop.dropoffLat], "drop-off");
+  const extra = stopIndex > 0 ? stop.extraDropoffs[stopIndex - 1] : null;
+  if (stopIndex > 0 && !extra) throw new ApiError(404, "That stop isn't part of this delivery.");
+  if (extra ? extra.droppedOffAt : stop.droppedOffAt) throw new ApiError(409, "Already delivered.");
+  assertArrived(at, extra ? [extra.lng, extra.lat] : [stop.dropoffLng, stop.dropoffLat], "drop-off");
 
+  const now = new Date();
+  const extraDropoffs = stop.extraDropoffs.map((d, i) =>
+    i === stopIndex - 1 ? { ...d, droppedOffAt: now.toISOString() } : d,
+  );
+  const droppedOffAt = extra ? stop.droppedOffAt : now;
+  const allDone = !!droppedOffAt && extraDropoffs.every((d) => d.droppedOffAt);
   await db
     .update(booking)
-    .set({ droppedOffAt: new Date(), status: "completed" })
+    .set({ droppedOffAt, extraDropoffs, ...(allDone && { status: "completed" as const }) })
     .where(eq(booking.id, bookingId));
+  if (!allDone) return listDriverTrips(driverId, at);
 
   const [remaining] = await db
     .select({ id: booking.id })
     .from(booking)
-    .where(and(eq(booking.tripId, tripId), eq(booking.status, "active"), isNull(booking.droppedOffAt)))
+    .where(and(eq(booking.tripId, tripId), eq(booking.status, "active")))
     .limit(1);
   if (!remaining) {
     await db
@@ -183,8 +208,9 @@ function withinReach(t: DriverTrip, at: DriverLocation) {
   const here: LngLat = [at.lng, at.lat];
   return t.bookings.every(
     (b) =>
-      distanceKm(here, [b.pickup.lng, b.pickup.lat]) <= SERVICE_RADIUS_KM &&
-      distanceKm(here, [b.dropoff.lng, b.dropoff.lat]) <= SERVICE_RADIUS_KM,
+      [b.pickup, b.dropoff, ...b.extraDropoffs.map((d) => d.place)].every(
+        (p) => distanceKm(here, [p.lng, p.lat]) <= SERVICE_RADIUS_KM,
+      ),
   );
 }
 
@@ -240,6 +266,12 @@ async function toDriverTrips(trips: TripRow[], { withContact }: { withContact: b
             title: b.dropoffTitle,
             subtitle: b.dropoffSubtitle,
           },
+          extraDropoffs: b.extraDropoffs.map((d) => ({
+            place: { lng: d.lng, lat: d.lat, title: d.title, subtitle: d.subtitle },
+            recipientName: d.recipientName,
+            recipientPhone: withContact ? d.recipientPhone : null,
+            droppedOff: !!d.droppedOffAt,
+          })),
         }));
       return {
         id: t.id,
@@ -247,6 +279,7 @@ async function toDriverTrips(trips: TripRow[], { withContact }: { withContact: b
         status: t.status,
         capacity: t.capacity,
         slotsFilled: t.slotsFilled,
+        scheduledFor: t.scheduledFor,
         total: bookings.reduce((sum, b) => sum + b.fare, 0),
         bookings,
       };

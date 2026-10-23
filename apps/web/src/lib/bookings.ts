@@ -1,22 +1,28 @@
 import "server-only";
-import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { booking, db, driver, merchant, trip, user, type OrderItem } from "@trikeit/db";
 import { ApiError } from "@/lib/api";
 import { slotFare, TRIP_CAPACITY } from "@/lib/fare";
 import { distanceKm, roadDistanceKm, type LngLat } from "@/lib/geo";
 import { isValidPhoneNumber } from "@/lib/phone";
+import { DISPATCH_LEAD_MINUTES } from "@/lib/trips";
 
 // A regular booking joins an open trip only if both stops are near that trip's first booking.
 const POOL_PICKUP_RADIUS_KM = 1;
 const POOL_DROPOFF_RADIUS_KM = 3;
+
+export const MAX_DROPOFFS = 4;
+const SLOT_MINUTES = 30;
+const MIN_LEAD_MINUTES = 15;
+const MAX_DAYS_AHEAD = 3;
 
 const contact = z.object({
   name: z.string().trim().min(1).max(100),
   phone: z.string().trim().refine(isValidPhoneNumber),
 });
 
-const place = z.object({
+export const bookingPlace = z.object({
   lng: z.number().min(116).max(127),
   lat: z.number().min(4).max(22),
   title: z.string().trim().min(1).max(200),
@@ -25,14 +31,32 @@ const place = z.object({
   contact,
 });
 
-export const createBookingInput = z.object({
-  kind: z.enum(["regular", "special"]),
-  pickup: place,
-  dropoff: place,
-  payment: z.enum(["cod", "online"]),
-  payer: z.enum(["sender", "recipient"]),
-  parcelNotes: z.string().trim().max(500).default(""),
-});
+export const createBookingInput = z
+  .object({
+    kind: z.enum(["regular", "special"]),
+    pickup: bookingPlace,
+    dropoff: bookingPlace,
+    extraDropoffs: z.array(bookingPlace).max(MAX_DROPOFFS - 1).default([]),
+    payment: z.enum(["cod", "online"]),
+    payer: z.enum(["sender", "recipient"]),
+    parcelNotes: z.string().trim().max(500).default(""),
+    scheduledFor: z.coerce.date().optional(),
+  })
+  .refine((b) => b.payer === "sender" || !b.extraDropoffs.length, {
+    message: "With more than one recipient, the sender pays.",
+  })
+  .refine((b) => !b.scheduledFor || isValidSlot(b.scheduledFor), {
+    message: "Pick a pick-up time from the list.",
+  });
+
+function isValidSlot(at: Date) {
+  const minutes = (at.getTime() - Date.now()) / 60_000;
+  return (
+    at.getTime() % (SLOT_MINUTES * 60_000) === 0 &&
+    minutes >= MIN_LEAD_MINUTES &&
+    minutes <= MAX_DAYS_AHEAD * 24 * 60
+  );
+}
 
 export type BookingView = Awaited<ReturnType<typeof getBooking>>;
 
@@ -84,6 +108,14 @@ export async function getBooking(userId: string, bookingId: string) {
     distanceKm: b.distanceKm,
     pickup: { lng: b.pickupLng, lat: b.pickupLat, title: b.pickupTitle, subtitle: b.pickupSubtitle },
     dropoff: { lng: b.dropoffLng, lat: b.dropoffLat, title: b.dropoffTitle, subtitle: b.dropoffSubtitle },
+    extraDropoffs: b.extraDropoffs.map((d) => ({
+      place: { lng: d.lng, lat: d.lat, title: d.title, subtitle: d.subtitle },
+      recipient: { name: d.recipientName, phone: d.recipientPhone },
+      droppedOff: !!d.droppedOffAt,
+    })),
+    scheduledFor: b.scheduledFor,
+    awaitingDispatch:
+      !!b.scheduledFor && b.scheduledFor.getTime() - DISPATCH_LEAD_MINUTES * 60_000 > Date.now(),
     sender: { name: b.senderName, phone: b.senderPhone },
     recipient: { name: b.recipientName, phone: b.recipientPhone },
     payer: b.payer,
@@ -124,14 +156,17 @@ export async function createBooking(
   }
 
   const pickup: LngLat = [input.pickup.lng, input.pickup.lat];
-  const dropoff: LngLat = [input.dropoff.lng, input.dropoff.lat];
-  const km = await roadDistanceKm(pickup, dropoff);
+  const dropoffs: LngLat[] = [input.dropoff, ...input.extraDropoffs].map((d) => [d.lng, d.lat]);
+  // Priced on the road distance through every stop in the order given.
+  const km = await roadDistanceKm([pickup, ...dropoffs]);
   const slots = input.kind === "special" ? TRIP_CAPACITY : 1;
+  const scheduledFor = input.scheduledFor ?? null;
 
   const tripRow =
     input.kind === "special"
-      ? await insertTrip("special", pickup, dropoff, TRIP_CAPACITY)
-      : ((await joinOpenTrip(pickup, dropoff)) ?? (await insertTrip("regular", pickup, dropoff, 1)));
+      ? await insertTrip("special", pickup, dropoffs[0], TRIP_CAPACITY, scheduledFor)
+      : ((await joinOpenTrip(pickup, dropoffs, scheduledFor)) ??
+        (await insertTrip("regular", pickup, dropoffs[0], 1, scheduledFor)));
 
   let bookingId: string;
   try {
@@ -158,6 +193,16 @@ export async function createBooking(
         recipientName: input.dropoff.contact.name,
         recipientPhone: input.dropoff.contact.phone,
         parcelNotes: input.parcelNotes,
+        extraDropoffs: input.extraDropoffs.map((d) => ({
+          lng: d.lng,
+          lat: d.lat,
+          title: d.title,
+          subtitle: d.subtitle,
+          recipientName: d.contact.name,
+          recipientPhone: d.contact.phone,
+          droppedOffAt: null,
+        })),
+        scheduledFor,
         ...order,
       })
       .returning({ id: booking.id });
@@ -227,7 +272,13 @@ export async function cancelBooking(userId: string, bookingId: string) {
   return getBooking(userId, bookingId);
 }
 
-async function insertTrip(kind: "regular" | "special", pickup: LngLat, dropoff: LngLat, slotsFilled: number) {
+async function insertTrip(
+  kind: "regular" | "special",
+  pickup: LngLat,
+  dropoff: LngLat,
+  slotsFilled: number,
+  scheduledFor: Date | null,
+) {
   const [row] = await db
     .insert(trip)
     .values({
@@ -239,25 +290,39 @@ async function insertTrip(kind: "regular" | "special", pickup: LngLat, dropoff: 
       anchorPickupLat: pickup[1],
       anchorDropoffLng: dropoff[0],
       anchorDropoffLat: dropoff[1],
+      scheduledFor,
       readyAt: slotsFilled >= TRIP_CAPACITY ? new Date() : null,
     })
     .returning();
   return row;
 }
 
-/** Takes one slot on the oldest open regular trip going the same way, if there is one. */
-async function joinOpenTrip(pickup: LngLat, dropoff: LngLat) {
+/**
+ * Takes one slot on the oldest open regular trip going the same way at the same time, if there
+ * is one. Every drop-off must be near the trip's.
+ */
+async function joinOpenTrip(pickup: LngLat, dropoffs: LngLat[], scheduledFor: Date | null) {
   const open = await db
     .select()
     .from(trip)
-    .where(and(eq(trip.kind, "regular"), eq(trip.status, "filling"), lt(trip.slotsFilled, trip.capacity)))
+    .where(
+      and(
+        eq(trip.kind, "regular"),
+        eq(trip.status, "filling"),
+        lt(trip.slotsFilled, trip.capacity),
+        scheduledFor ? eq(trip.scheduledFor, scheduledFor) : isNull(trip.scheduledFor),
+      ),
+    )
     .orderBy(asc(trip.createdAt))
     .limit(100);
 
   for (const candidate of open) {
     const near =
       distanceKm(pickup, [candidate.anchorPickupLng, candidate.anchorPickupLat]) <= POOL_PICKUP_RADIUS_KM &&
-      distanceKm(dropoff, [candidate.anchorDropoffLng, candidate.anchorDropoffLat]) <= POOL_DROPOFF_RADIUS_KM;
+      dropoffs.every(
+        (dropoff) =>
+          distanceKm(dropoff, [candidate.anchorDropoffLng, candidate.anchorDropoffLat]) <= POOL_DROPOFF_RADIUS_KM,
+      );
     if (!near) continue;
 
     // Conditional so two bookings can't take the last slot at once.

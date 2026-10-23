@@ -2,6 +2,7 @@ import { SlotMeter } from '@/components/booking/slot-meter';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { Booking } from '@/lib/api';
+import { formatSlot } from '@/lib/schedule';
 import { router } from 'expo-router';
 import { ChevronRightIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
@@ -14,7 +15,9 @@ export function ActiveBookingBanner({ booking }: { booking: Booking }) {
         ? 'Waiting for a trike…'
         : trip.status === 'filling'
           ? 'Batching your parcel'
-          : 'Finding a rider'
+          : booking.scheduledFor
+            ? `Scheduled · ${formatSlot(booking.scheduledFor)}`
+            : 'Finding a rider'
       : booking.pickedUp
         ? 'Out for delivery'
         : 'Rider on the way to pick up';

@@ -43,6 +43,11 @@ const COPY: Record<Stop, { title: string; confirm: string; search: string }> = {
     search: 'Search drop-off location',
   },
 };
+const EXTRA_STOP_COPY = {
+  title: 'Next drop-off',
+  confirm: 'Confirm drop-off',
+  search: 'Search drop-off location',
+};
 const ORDER_COPY = {
   title: 'Deliver my order to',
   confirm: 'Deliver here',
@@ -50,14 +55,24 @@ const ORDER_COPY = {
 };
 
 export default function PickLocationScreen() {
-  // `for=order` sets where merchant orders go instead of a parcel's stop.
-  const params = useLocalSearchParams<{ stop?: Stop; for?: 'order' }>();
+  // `for=order` sets where merchant orders go instead of a parcel's stop. `extra` picks one of
+  // the drop-offs after the first; an index past the end adds one.
+  const params = useLocalSearchParams<{ stop?: Stop; for?: 'order'; extra?: string }>();
   const forOrder = params.for === 'order';
-  const stop = forOrder ? 'dropoff' : (params.stop ?? 'pickup');
+  const extra = params.extra !== undefined ? Number(params.extra) : null;
+  const stop = forOrder || extra !== null ? 'dropoff' : (params.stop ?? 'pickup');
   const booking = useBooking();
   const cart = useCart();
-  const existing = forOrder ? cart.address : booking[stop];
-  const other = forOrder ? null : booking[stop === 'pickup' ? 'dropoff' : 'pickup'];
+  const existing = forOrder
+    ? cart.address
+    : extra !== null
+      ? (booking.extraStops[extra] ?? null)
+      : booking[stop];
+  const other = forOrder
+    ? null
+    : extra !== null
+      ? (booking.extraStops[extra - 1] ?? booking.dropoff)
+      : booking[stop === 'pickup' ? 'dropoff' : 'pickup'];
 
   const cameraRef = React.useRef<CameraRef>(null);
   const [place, setPlace] = React.useState<Place | null>(existing);
@@ -155,6 +170,11 @@ export default function PickLocationScreen() {
       router.back();
       return;
     }
+    if (extra !== null) {
+      booking.setExtraStop(extra, chosen);
+      router.back();
+      return;
+    }
     booking.setStop(stop, chosen);
     if (stop === 'pickup' && !booking.dropoff) {
       router.replace({ pathname: '/pick-location', params: { stop: 'dropoff' } });
@@ -163,7 +183,7 @@ export default function PickLocationScreen() {
     }
   }
 
-  const copy = forOrder ? ORDER_COPY : COPY[stop];
+  const copy = forOrder ? ORDER_COPY : extra !== null ? EXTRA_STOP_COPY : COPY[stop];
   const busy = moving || resolving || !place || !contact;
 
   return (

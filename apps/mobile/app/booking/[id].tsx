@@ -7,6 +7,7 @@ import { StopDot } from '@/components/brand/stop-dot';
 import { Text } from '@/components/ui/text';
 import { api, type Booking } from '@/lib/api';
 import { formatE164 } from '@/lib/phone';
+import { formatSlot } from '@/lib/schedule';
 import { usePoll } from '@/lib/use-poll';
 import { cn } from '@/lib/utils';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -173,7 +174,13 @@ function StatusCard({
       return (
         <>
           <StatusHero variant="waiting" label="Waiting for a trike…" />
-          <Card body="Your trip has been sent to approved riders nearby." />
+          <Card
+            body={
+              booking.scheduledFor && booking.awaitingDispatch
+                ? `Scheduled for ${formatSlot(booking.scheduledFor)}. Riders nearby will see it 30 minutes before.`
+                : 'Your trip has been sent to approved riders nearby.'
+            }
+          />
         </>
       );
     case 'accepted':
@@ -210,13 +217,20 @@ function DetailsCard({ booking }: { booking: Booking }) {
           title={booking.dropoff.title}
           subtitle={booking.dropoff.subtitle}
         />
+        {booking.extraDropoffs.map((d, i) => (
+          <PlaceRow key={i} stop="dropoff" title={d.place.title} subtitle={d.place.subtitle} />
+        ))}
       </View>
       <View className="h-px bg-brand-navy/10" />
+      {booking.scheduledFor && <Row label="Pick-up" value={formatSlot(booking.scheduledFor)} />}
       <Row label="Sender" value={`${booking.sender.name} · ${formatE164(booking.sender.phone)}`} />
-      <Row
-        label="Recipient"
-        value={`${booking.recipient.name} · ${formatE164(booking.recipient.phone)}`}
-      />
+      {[booking.recipient, ...booking.extraDropoffs.map((d) => d.recipient)].map((r, i, all) => (
+        <Row
+          key={i}
+          label={all.length > 1 ? `Recipient ${i + 1}` : 'Recipient'}
+          value={`${r.name} · ${formatE164(r.phone)}`}
+        />
+      ))}
       {!!booking.parcelNotes && <Row label="Parcel" value={booking.parcelNotes} />}
       <Row label="Type" value={booking.kind === 'special' ? 'Express' : 'Regular'} />
       <Row label="Distance" value={`${booking.distanceKm.toFixed(1)} km`} />

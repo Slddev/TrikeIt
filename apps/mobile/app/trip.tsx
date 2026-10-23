@@ -14,6 +14,7 @@ import {
   isDone,
   orderStops,
   payAt,
+  stopKey,
   type TripStop,
 } from '@/lib/trip-stops';
 import { usePoll } from '@/lib/use-poll';
@@ -43,7 +44,7 @@ export default function TripScreen() {
       const location = await currentLocation();
       const result = await api<DriverTrips>(`/api/driver/trips/${trip.id}/${stop.stop}`, {
         method: 'POST',
-        body: { location, bookingId: stop.booking.id },
+        body: { location, bookingId: stop.booking.id, stopIndex: stop.index },
       });
       setData(result);
       if (!result.active) {
@@ -124,7 +125,7 @@ export default function TripScreen() {
               <View className="gap-1 rounded-3xl bg-white p-2">
                 {stops.map((stop, i) => (
                   <StopRow
-                    key={`${stop.stop}-${stop.booking.id}`}
+                    key={stopKey(stop)}
                     index={i + 1}
                     stop={stop}
                     isNext={stop === next}

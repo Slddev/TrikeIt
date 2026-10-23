@@ -1,4 +1,5 @@
 import { ActiveBookingBanner } from '@/components/booking/active-booking-banner';
+import { ScheduleDropdown } from '@/components/booking/schedule-dropdown';
 import { Gradient } from '@/components/brand/gradient';
 import { Logo } from '@/components/brand/logo';
 import { RouteMap } from '@/components/brand/route-map';
@@ -9,9 +10,10 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { api, type Booking, type BookingKind, type Payer, type PaymentMethod } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
-import { useBooking, type BookingStop, type Stop } from '@/lib/booking';
+import { MAX_EXTRA_STOPS, useBooking, type BookingStop, type Stop } from '@/lib/booking';
 import { deliveryFare, TRIP_CAPACITY } from '@/lib/fare';
 import { formatE164 } from '@/lib/phone';
+import { formatSlot } from '@/lib/schedule';
 import { distanceKm } from '@/lib/places';
 import { usePoll } from '@/lib/use-poll';
 import { useRoute, type RouteState } from '@/lib/use-route';
@@ -19,14 +21,13 @@ import { cn } from '@/lib/utils';
 import { router } from 'expo-router';
 import {
   BanknoteIcon,
-  ChevronDownIcon,
-  ClockIcon,
   PackageIcon,
   PlusIcon,
   SmartphoneIcon,
   StoreIcon,
   UserIcon,
   UsersIcon,
+  XIcon,
   ZapIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
@@ -167,8 +168,9 @@ function TabSwitcher({ value, onChange }: { value: Tab; onChange: (tab: Tab) => 
 }
 
 function DeliveryTab() {
-  const { pickup, dropoff, parcelNotes } = useBooking();
+  const { pickup, dropoff, extraStops, parcelNotes } = useBooking();
   const [kind, setKind] = React.useState<BookingKind | null>(null);
+  const [scheduledFor, setScheduledFor] = React.useState<Date | null>(null);
   const [payment, setPayment] = React.useState<PaymentMethod>('cod');
   const [payer, setPayer] = React.useState<Payer>('sender');
   const { data: active } = usePoll(
@@ -177,11 +179,13 @@ function DeliveryTab() {
     { intervalMs: 8000 }
   );
 
-  const route = useRoute(pickup && dropoff ? [pickup.coords, dropoff.coords] : null);
+  const stops = pickup && dropoff ? [pickup, dropoff, ...extraStops] : null;
+  const route = useRoute(stops?.map((s) => s.coords) ?? null);
   // Falls back to straight-line distance if routing failed; the server re-measures either way.
   const km =
-    route.status === 'done' && pickup && dropoff
-      ? (route.route?.km ?? distanceKm(pickup.coords, dropoff.coords))
+    route.status === 'done' && stops
+      ? (route.route?.km ??
+        stops.slice(1).reduce((sum, s, i) => sum + distanceKm(stops[i].coords, s.coords), 0))
       : null;
 
   return (
@@ -190,7 +194,14 @@ function DeliveryTab() {
         contentContainerClassName="gap-6 px-6 pb-6 pt-4"
         keyboardShouldPersistTaps="handled">
         {active?.booking && <ActiveBookingBanner booking={active.booking} />}
-        <RouteCard pickup={pickup} dropoff={dropoff} route={route} km={km} />
+        <RouteCard
+          pickup={pickup}
+          dropoff={dropoff}
+          route={route}
+          km={km}
+          scheduledFor={scheduledFor}
+          onSchedule={setScheduledFor}
+        />
         {route.status === 'done' && route.route && <RouteMap route={route.route} />}
 
         <View className="gap-3">
@@ -218,6 +229,8 @@ function DeliveryTab() {
           pickup={pickup}
           dropoff={dropoff}
           parcelNotes={parcelNotes}
+          extraStops={extraStops}
+          scheduledFor={scheduledFor}
         />
       )}
     </View>
@@ -229,22 +242,55 @@ function RouteCard({
   dropoff,
   route,
   km,
+  scheduledFor,
+  onSchedule,
 }: {
   pickup: BookingStop | null;
   dropoff: BookingStop | null;
   route: RouteState;
   km: number | null;
+  scheduledFor: Date | null;
+  onSchedule: (at: Date | null) => void;
 }) {
+  const { extraStops, removeExtraStop } = useBooking();
+  const canAddStop = !!dropoff && extraStops.length < MAX_EXTRA_STOPS;
+
   return (
     <View className="gap-3 rounded-3xl bg-brand-navy p-4">
       <View className="rounded-2xl bg-white px-4">
         <RouteField stop="pickup" place={pickup} placeholder="Set pick-up location" />
         <View className="ml-[7px] h-3 w-0.5 bg-brand-navy/20" />
         <RouteField stop="dropoff" place={dropoff} placeholder="Set drop-off location" />
+        {extraStops.map((place, i) => (
+          <React.Fragment key={i}>
+            <View className="ml-[7px] h-3 w-0.5 bg-brand-navy/20" />
+            <RouteField
+              stop="dropoff"
+              place={place}
+              placeholder="Set drop-off location"
+              extra={i}
+              onRemove={() => removeExtraStop(i)}
+            />
+          </React.Fragment>
+        ))}
       </View>
 
-      <View className="flex-row items-center justify-between">
-        <Pressable className="flex-row items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 active:bg-white/20">
+      <View className="flex-row items-center justify-between gap-2">
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: '/pick-location',
+              params: { extra: String(extraStops.length) },
+            })
+          }
+          disabled={!canAddStop}
+          accessibilityHint={
+            dropoff ? `Up to ${MAX_EXTRA_STOPS + 1} drop-offs` : 'Set the first drop-off first'
+          }
+          className={cn(
+            'flex-row items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 active:bg-white/20',
+            !canAddStop && 'opacity-40'
+          )}>
           <Icon as={PlusIcon} size={16} className="text-brand-yellow" />
           <Text className="font-poppins-medium text-sm text-brand-yellow">Add stop</Text>
         </Pressable>
@@ -256,11 +302,7 @@ function RouteCard({
               : `≈ ${km.toFixed(1)} km (est.)`}
           </Text>
         )}
-        <Pressable className="flex-row items-center gap-1.5 rounded-full bg-brand-yellow px-3 py-2 active:opacity-80">
-          <Icon as={ClockIcon} size={16} className="text-brand-navy" />
-          <Text className="font-poppins-medium text-sm text-brand-navy">Now</Text>
-          <Icon as={ChevronDownIcon} size={16} className="text-brand-navy" />
-        </Pressable>
+        <ScheduleDropdown value={scheduledFor} onChange={onSchedule} />
       </View>
     </View>
   );
@@ -270,14 +312,23 @@ function RouteField({
   stop,
   place,
   placeholder,
+  extra,
+  onRemove,
 }: {
   stop: Stop;
   place: BookingStop | null;
   placeholder: string;
+  extra?: number;
+  onRemove?: () => void;
 }) {
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/pick-location', params: { stop } })}
+      onPress={() =>
+        router.push({
+          pathname: '/pick-location',
+          params: extra === undefined ? { stop } : { extra: String(extra) },
+        })
+      }
       accessibilityRole="button"
       accessibilityLabel={place ? `${placeholder}: ${place.title}` : placeholder}
       className="min-h-14 flex-row items-center gap-3 py-2 active:opacity-70">
@@ -299,6 +350,15 @@ function RouteField({
           <Text className="font-poppins text-base text-brand-navy/50">{placeholder}</Text>
         )}
       </View>
+      {onRemove && (
+        <Pressable
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityLabel={`Remove stop ${place?.title ?? ''}`}
+          className="h-8 w-8 items-center justify-center rounded-full bg-brand-cream active:opacity-70">
+          <Icon as={XIcon} size={16} className="text-brand-navy" />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -356,6 +416,8 @@ function CheckoutPanel({
   pickup,
   dropoff,
   parcelNotes,
+  extraStops,
+  scheduledFor,
 }: {
   kind: BookingKind;
   fare: number;
@@ -366,10 +428,14 @@ function CheckoutPanel({
   pickup: BookingStop;
   dropoff: BookingStop;
   parcelNotes: string;
+  extraStops: BookingStop[];
+  scheduledFor: Date | null;
 }) {
   const [booking, setBooking] = React.useState(false);
+  const multiStop = extraStops.length > 0;
+  const whoPays = multiStop ? 'sender' : payer;
   // A recipient can only pay in cash when the parcel arrives.
-  const method = payer === 'recipient' ? 'cod' : payment;
+  const method = whoPays === 'recipient' ? 'cod' : payment;
 
   async function onBook() {
     setBooking(true);
@@ -386,10 +452,12 @@ function CheckoutPanel({
         body: {
           kind,
           payment: method,
-          payer,
+          payer: whoPays,
           pickup: toApi(pickup),
           dropoff: toApi(dropoff),
+          extraDropoffs: extraStops.map(toApi),
           parcelNotes: parcelNotes.trim(),
+          scheduledFor: scheduledFor?.toISOString(),
         },
       });
       router.push({ pathname: '/booking/[id]', params: { id: created.id } });
@@ -404,20 +472,26 @@ function CheckoutPanel({
     <SafeAreaView
       edges={['bottom']}
       className="gap-4 rounded-t-3xl bg-white px-6 pt-5 shadow-lg shadow-black/10">
-      <View className="gap-2">
-        <Text className="font-poppins text-xs uppercase tracking-wider text-brand-navy/50">
-          Who pays?
+      {multiStop ? (
+        <Text className="font-poppins text-sm text-brand-navy/70">
+          With {extraStops.length + 1} drop-offs, the sender pays for the whole delivery.
         </Text>
-        <Choices
-          value={payer}
-          onChange={onPayer}
-          options={[
-            { key: 'sender', label: pickup.contact.isMe ? 'Sender (you)' : 'Sender' },
-            { key: 'recipient', label: dropoff.contact.isMe ? 'Recipient (you)' : 'Recipient' },
-          ]}
-        />
-      </View>
-      {payer === 'sender' ? (
+      ) : (
+        <View className="gap-2">
+          <Text className="font-poppins text-xs uppercase tracking-wider text-brand-navy/50">
+            Who pays?
+          </Text>
+          <Choices
+            value={payer}
+            onChange={onPayer}
+            options={[
+              { key: 'sender', label: pickup.contact.isMe ? 'Sender (you)' : 'Sender' },
+              { key: 'recipient', label: dropoff.contact.isMe ? 'Recipient (you)' : 'Recipient' },
+            ]}
+          />
+        </View>
+      )}
+      {whoPays === 'sender' ? (
         <Choices
           value={payment}
           onChange={onPayment}
@@ -436,7 +510,7 @@ function CheckoutPanel({
       <View className="flex-row items-center justify-between">
         <View>
           <Text className="font-poppins text-sm text-brand-navy/60">
-            {SERVICES[kind].title} delivery
+            {SERVICES[kind].title} · {scheduledFor ? formatSlot(scheduledFor) : 'now'}
           </Text>
           <Text className="font-poppins-bold text-2xl text-brand-navy">₱{fare}</Text>
         </View>

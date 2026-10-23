@@ -15,14 +15,14 @@ export function distanceKm([lon1, lat1]: LngLat, [lon2, lat2]: LngLat) {
 // OSRM's public demo server; switch to a self-hosted OSRM (same API) before launch.
 const OSRM = "https://router.project-osrm.org/route/v1/driving";
 
-/** Road distance in km, or the straight-line distance if routing is unavailable. */
-export async function roadDistanceKm(from: LngLat, to: LngLat) {
+/** Road distance in km through `points` in order, or the straight-line distance if routing is unavailable. */
+export async function roadDistanceKm(points: LngLat[]) {
   try {
-    const res = await fetch(`${OSRM}/${from.join(",")};${to.join(",")}?overview=false`, {
+    const res = await fetch(`${OSRM}/${points.map((p) => p.join(",")).join(";")}?overview=false`, {
       signal: AbortSignal.timeout(8_000),
     });
     const data = await res.json();
     if (res.ok && data.code === "Ok" && data.routes?.length) return data.routes[0].distance / 1000;
   } catch {}
-  return distanceKm(from, to);
+  return points.slice(1).reduce((km, point, i) => km + distanceKm(points[i], point), 0);
 }

@@ -45,6 +45,15 @@ export type Booking = {
   distanceKm: number;
   pickup: ApiPlace;
   dropoff: ApiPlace;
+  extraDropoffs: {
+    place: ApiPlace;
+    recipient: { name: string; phone: string };
+    droppedOff: boolean;
+  }[];
+  // Pick-up slot for scheduled deliveries; null means now.
+  scheduledFor: string | null;
+  // True until riders can see a scheduled trip (30 minutes before its pick-up).
+  awaitingDispatch: boolean;
   sender: { name: string; phone: string };
   recipient: { name: string; phone: string };
   payer: Payer;
@@ -97,7 +106,14 @@ export type DriverTrip = {
     droppedOff: boolean;
     pickup: ApiPlace;
     dropoff: ApiPlace;
+    extraDropoffs: {
+      place: ApiPlace;
+      recipientName: string;
+      recipientPhone: string | null;
+      droppedOff: boolean;
+    }[];
   }[];
+  scheduledFor: string | null;
   /** Open trips only: how far the closest pick-up is from the driver. */
   distanceToPickupKm?: number;
 };

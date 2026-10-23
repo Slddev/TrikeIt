@@ -8,6 +8,7 @@ import {
   type Coords,
 } from '@/lib/location';
 import { usePoll } from '@/lib/use-poll';
+import { formatSlot } from '@/lib/schedule';
 import { cn } from '@/lib/utils';
 import { router } from 'expo-router';
 import {
@@ -301,9 +302,22 @@ function OpenTripCard({
         <StopSummary
           label="Drop off"
           title={first.dropoff.title}
-          more={new Set(trip.bookings.map((b) => b.dropoff.title)).size - 1}
+          more={
+            new Set(
+              trip.bookings.flatMap((b) => [
+                b.dropoff.title,
+                ...b.extraDropoffs.map((d) => d.place.title),
+              ])
+            ).size - 1
+          }
         />
       </View>
+
+      {trip.scheduledFor && (
+        <Text className="font-poppins-semibold text-xs text-brand-navy">
+          Scheduled pick-up · {formatSlot(trip.scheduledFor)}
+        </Text>
+      )}
 
       {storeCash > 0 && (
         <Text className="font-poppins-medium text-xs text-brand-navy">
