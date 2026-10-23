@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
@@ -9,6 +10,8 @@ import { AccountSetup } from "./account-setup";
 import { MerchantConsole } from "./merchant-console";
 import { RoleEditor } from "./role-editor";
 import { SignOutButton } from "./sign-out-button";
+
+export const metadata: Metadata = { title: "Dashboard", robots: { index: false, follow: false } };
 
 export default function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   return (

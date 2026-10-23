@@ -1,9 +1,72 @@
 import Link from "next/link";
 import { Logo, Wordmark } from "@/components/logo";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+
+const FAQ = [
+  {
+    q: "How much does a TrikeIt! delivery cost?",
+    a: "Regular deliveries are ₱12 for the first kilometer and ₱12 for each kilometer after, by road distance. Express deliveries use the whole trike and cost 4× the regular fare.",
+  },
+  {
+    q: "What's the difference between Regular and Express?",
+    a: "Regular deliveries share a tricycle with up to three others going your way, and go out once the trike is full. Express gets a trike to yourself and goes to riders right away.",
+  },
+  {
+    q: "Can I order from stores?",
+    a: "Yes. Open the Merchants tab in the app, pick a store near you, and add items to your basket. A rider buys your order at the store and you pay for everything in cash when it arrives.",
+  },
+  {
+    q: "Who delivers my parcel?",
+    a: "Local TODA tricycle riders approved by our team. Once a rider accepts, you'll see their name, plate and body number, and they confirm each pick-up and drop-off on the spot.",
+  },
+  {
+    q: "Can someone else receive or pay for the parcel?",
+    a: "Yes. Add the recipient's name and number when you set the drop-off. Either the sender or the recipient can pay; the recipient pays cash on delivery.",
+  },
+  {
+    q: "How do I become a TrikeIt! rider or merchant?",
+    a: "Sign in to the app with your phone number, then contact us to be approved as a rider or to list your store.",
+  },
+];
+
+// Structured data so search engines can show the business details and FAQ answers.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL.href}#organization`,
+      name: SITE_NAME,
+      url: SITE_URL.href,
+      logo: new URL("/icon.png", SITE_URL).href,
+      description: SITE_DESCRIPTION,
+      areaServed: { "@type": "Country", name: "Philippines" },
+    },
+    {
+      "@type": "WebSite",
+      name: SITE_NAME,
+      url: SITE_URL.href,
+      inLanguage: "en-PH",
+      publisher: { "@id": `${SITE_URL.href}#organization` },
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQ.map(({ q, a }) => ({
+        "@type": "Question",
+        name: q,
+        acceptedAnswer: { "@type": "Answer", text: a },
+      })),
+    },
+  ],
+};
 
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c") }}
+      />
       <header className="sticky top-0 z-10 border-b border-brand-navy/5 bg-brand-yellow/90 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link href="/" aria-label="TrikeIt! home">
@@ -15,6 +78,12 @@ export default function Home() {
               className="hidden text-sm font-medium hover:underline sm:inline"
             >
               How it works
+            </a>
+            <a
+              href="#stores"
+              className="hidden text-sm font-medium hover:underline sm:inline"
+            >
+              Stores
             </a>
             <a
               href="#riders"
@@ -37,15 +106,15 @@ export default function Home() {
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 md:py-24">
             <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
               <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-                Trike delivery
+                Tricycle delivery in the Philippines
               </span>
               <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
                 Deliveries by your local trike.
               </h1>
               <p className="max-w-md text-lg text-brand-navy/70">
-                Pin the pick-up and drop-off, and a local TODA rider delivers
-                your parcel. Batch it with up to three others for less, or send
-                it special right away.
+                Pin the pick-up and drop-off, and a local TODA tricycle rider
+                delivers your parcel, or orders from stores near you. Batch it
+                with up to three others for less, or send it Express right away.
               </p>
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                 <a
@@ -78,7 +147,7 @@ export default function Home() {
               Drag the map to the exact pick-up and drop-off, or search for a
               place, and add who receives it. Fares follow the road distance.
             </Step>
-            <Step n={2} title="Batch it or send it special">
+            <Step n={2} title="Batch it or send it Express">
               Regular deliveries go out once four parcels heading your way fill
               the trike. Watch the batch fill up, or pay for the empty slots to
               send it sooner.
@@ -111,7 +180,7 @@ export default function Home() {
               ]}
             />
             <Fare
-              name="Special"
+              name="Express"
               price="4×"
               unit="the regular fare"
               highlight
@@ -121,6 +190,33 @@ export default function Home() {
                 "No waiting for a batch",
               ]}
             />
+          </div>
+        </section>
+
+        <section id="stores" className="mx-auto max-w-6xl scroll-mt-20 px-4 pt-16 sm:px-6 md:pt-24">
+          <div className="grid gap-8 rounded-3xl bg-brand-yellow p-8 sm:p-12 md:grid-cols-2">
+            <div className="flex flex-col gap-4">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Order from stores near you
+              </h2>
+              <p className="text-brand-navy/70">
+                Bakeries, carinderias and sari-sari stores in your area, in the
+                Merchants tab. Add to your basket, leave a note for the store,
+                and a rider brings it over.
+              </p>
+            </div>
+            <ul className="flex flex-col justify-center gap-3 text-sm">
+              {[
+                "Pay for your order and delivery in cash when it arrives",
+                "Express for a trike to yourself, or Regular to share and save",
+                "Track your order from “Waiting for a trike” to your door",
+              ].map((point) => (
+                <li key={point} className="flex gap-2 rounded-2xl bg-white/70 p-4">
+                  <span aria-hidden>✓</span>
+                  {point}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
@@ -145,6 +241,25 @@ export default function Home() {
               </p>
             </div>
             <Logo className="hidden size-40 text-brand-yellow md:block" />
+          </div>
+        </section>
+
+        <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 pb-16 sm:px-6 md:pb-24">
+          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+            Questions
+          </h2>
+          <div className="mt-8 flex flex-col gap-3">
+            {FAQ.map(({ q, a }) => (
+              <details key={q} className="group rounded-2xl bg-brand-cream p-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">
+                  <h3>{q}</h3>
+                  <span aria-hidden className="text-xl transition group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-brand-navy/70">{a}</p>
+              </details>
+            ))}
           </div>
         </section>
 
@@ -270,7 +385,7 @@ function PhoneMockup() {
           </div>
           <div className="flex items-center justify-between rounded-xl bg-brand-cream p-3">
             <span>
-              <b className="block">Special</b>Sent right away
+              <b className="block">Express</b>Sent right away
             </span>
             <b>₱192</b>
           </div>

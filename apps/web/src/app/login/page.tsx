@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Wordmark } from "@/components/logo";
 import { AuthForm } from "./auth-form";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  alternates: { canonical: "/login" },
+  robots: { index: false },
+};
 
 export default function LoginPage() {
   return (
