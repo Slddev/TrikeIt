@@ -47,7 +47,8 @@
         {
           "locationWhenInUsePermission": "TrikeIt! uses your location to set your pick-up and drop-off points."
         }
-      ]
+      ],
+      "./plugins/with-gradle-memory"
     ],
     "experiments": {
       "typedRoutes": true

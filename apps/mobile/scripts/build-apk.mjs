@@ -44,7 +44,13 @@ const run = (command, args, cwd) => {
 
 // Regenerates android/ only where app.json or plugins changed; hand edits there are not kept.
 run('npx', ['expo', 'prebuild', '--platform', 'android'], root);
-run(process.platform === 'win32' ? 'gradlew.bat' : './gradlew', ['assembleRelease'], join(root, 'android'));
+// Full path: some Windows setups don't run commands from the current folder.
+const androidDir = join(root, 'android');
+run(
+  `"${join(androidDir, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew')}"`,
+  ['assembleRelease'],
+  androidDir
+);
 
 console.log(
   `\n✔ Built ${join(root, 'android/app/build/outputs/apk/release/app-release.apk')}\n` +
