@@ -1,39 +1,62 @@
 import { StopDot } from '@/components/brand/stop-dot';
+import type { Stop } from '@/lib/booking';
 import { MAP_STYLE } from '@/lib/map';
 import type { Route } from '@/lib/routing';
+import { cn } from '@/lib/utils';
 import {
   Camera,
   GeoJSONSource,
   Layer,
   Map,
   Marker,
+  NativeUserLocation,
+  type LngLat,
   type LngLatBounds,
 } from '@maplibre/maplibre-react-native';
 import { View } from 'react-native';
 
-export function RouteMap({ route }: { route: Route }) {
+type MapStop = { coords: LngLat; stop: Stop };
+
+/** The road route with a marker per stop (default: the route's start and end). */
+export function RouteMap({
+  route,
+  stops,
+  interactive = false,
+  showUser = false,
+  className = 'h-44 rounded-3xl',
+}: {
+  route: Route;
+  stops?: MapStop[];
+  interactive?: boolean;
+  showUser?: boolean;
+  className?: string;
+}) {
   const start = route.line[0];
   const end = route.line[route.line.length - 1];
+  const markers: MapStop[] = stops ?? [
+    { coords: start, stop: 'pickup' },
+    { coords: end, stop: 'dropoff' },
+  ];
 
   return (
-    <View className="h-44 overflow-hidden rounded-3xl">
+    <View className={cn('overflow-hidden', className)}>
       <Map
         // Remount per route so the camera re-fits instead of keeping the old view.
-        key={`${start}-${end}`}
+        key={`${start}-${end}-${route.line.length}`}
         style={{ flex: 1 }}
         mapStyle={MAP_STYLE}
         logo={false}
         compass={false}
-        dragPan={false}
-        touchZoom={false}
-        doubleTapZoom={false}
-        doubleTapHoldZoom={false}
+        dragPan={interactive}
+        touchZoom={interactive}
+        doubleTapZoom={interactive}
+        doubleTapHoldZoom={interactive}
         touchRotate={false}
         touchPitch={false}>
         <Camera
           initialViewState={{
-            bounds: boundsOf(route.line),
-            padding: { top: 32, right: 32, bottom: 32, left: 32 },
+            bounds: boundsOf([...route.line, ...markers.map((m) => m.coords)]),
+            padding: { top: 40, right: 40, bottom: 40, left: 40 },
           }}
         />
         <GeoJSONSource
@@ -48,19 +71,19 @@ export function RouteMap({ route }: { route: Route }) {
             paint={{ 'line-color': '#0B0F3F', 'line-width': 5 }}
           />
         </GeoJSONSource>
-        <Marker lngLat={start}>
-          <StopDot stop="pickup" />
-        </Marker>
-        <Marker lngLat={end}>
-          <StopDot stop="dropoff" />
-        </Marker>
+        {markers.map((marker, i) => (
+          <Marker key={i} lngLat={marker.coords}>
+            <StopDot stop={marker.stop} />
+          </Marker>
+        ))}
+        {showUser && <NativeUserLocation />}
       </Map>
     </View>
   );
 }
 
-function boundsOf(line: Route['line']): LngLatBounds {
-  const lngs = line.map(([lng]) => lng);
-  const lats = line.map(([, lat]) => lat);
+function boundsOf(points: LngLat[]): LngLatBounds {
+  const lngs = points.map(([lng]) => lng);
+  const lats = points.map(([, lat]) => lat);
   return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
 }

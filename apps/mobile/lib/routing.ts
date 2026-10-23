@@ -11,11 +11,10 @@ export type Route = {
   line: LngLat[];
 };
 
-export async function getRoute(from: LngLat, to: LngLat, signal?: AbortSignal): Promise<Route> {
-  const res = await fetch(
-    `${OSRM}/${from.join(',')};${to.join(',')}?overview=full&geometries=geojson`,
-    { signal }
-  );
+/** Road route through `stops` in order (at least two). */
+export async function getRoute(stops: LngLat[], signal?: AbortSignal): Promise<Route> {
+  const coords = stops.map((stop) => stop.join(',')).join(';');
+  const res = await fetch(`${OSRM}/${coords}?overview=full&geometries=geojson`, { signal });
   const data = await res.json();
   if (!res.ok || data.code !== 'Ok' || !data.routes?.length) {
     throw new Error(`No route found (${data.code ?? res.status})`);

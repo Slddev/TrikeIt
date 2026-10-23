@@ -4,6 +4,7 @@ import { phoneNumber } from "better-auth/plugins";
 import { expo } from "@better-auth/expo";
 import { db } from "@trikeit/db";
 import { isValidPhoneNumber } from "@/lib/phone";
+import { PLACEHOLDER_EMAIL_DOMAIN } from "@/lib/profile";
 import { sendOtpSms } from "@/lib/sms";
 
 // Demo mode: no SMS is sent and every number signs in with this one code.
@@ -32,8 +33,8 @@ export const auth = betterAuth({
       phoneNumberValidator: isValidPhoneNumber,
       // Verifying a code for a new number creates the account; an existing one signs in.
       signUpOnVerification: {
-        // The user table requires an email, so phone-only users get a placeholder.
-        getTempEmail: (phone) => `${phone.replace("+", "")}@phone.trikeit.invalid`,
+        // Name and email are collected right after the first sign-in (see lib/profile.ts).
+        getTempEmail: (phone) => `${phone.replace("+", "")}${PLACEHOLDER_EMAIL_DOMAIN}`,
       },
     }),
     expo(),

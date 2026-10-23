@@ -1,6 +1,8 @@
+import { ContactForm, resolveContact, type ContactDraft } from '@/components/booking/contact-form';
 import { StopDot } from '@/components/brand/stop-dot';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { authClient } from '@/lib/auth-client';
 import { useBooking, type Stop } from '@/lib/booking';
 import { MAP_STYLE } from '@/lib/map';
 import { reverseGeocode, searchPlaces, type Place } from '@/lib/places';
@@ -16,7 +18,16 @@ import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeftIcon, LocateFixedIcon, MapPinIcon, SearchIcon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const NAVY = '#0B0F3F';
@@ -45,6 +56,19 @@ export default function PickLocationScreen() {
   const [moving, setMoving] = React.useState(false);
   const [resolving, setResolving] = React.useState(false);
   const [hasLocation, setHasLocation] = React.useState(false);
+  const { data: session } = authClient.useSession();
+  const me = { name: session?.user.name ?? '', phoneNumber: session?.user.phoneNumber };
+  // You usually send from your own spot; default the recipient to someone else.
+  const [contactDraft, setContactDraft] = React.useState<ContactDraft>(
+    existing?.contact
+      ? {
+          isMe: existing.contact.isMe,
+          name: existing.contact.isMe ? '' : existing.contact.name,
+          phone: existing.contact.isMe ? '' : existing.contact.phone,
+        }
+      : { isMe: stop === 'pickup', name: '', phone: '' }
+  );
+  const contact = resolveContact(contactDraft, me);
 
   const pendingPlace = React.useRef<Place | null>(null);
   const reverseAbort = React.useRef<AbortController | null>(null);
@@ -110,8 +134,13 @@ export default function PickLocationScreen() {
   }
 
   function onConfirm() {
-    if (!place) return;
-    booking.setStop(stop, place);
+    if (!place || !contact) return;
+    booking.setStop(stop, {
+      coords: place.coords,
+      title: place.title,
+      subtitle: place.subtitle,
+      contact,
+    });
     if (stop === 'pickup' && !booking.dropoff) {
       router.replace({ pathname: '/pick-location', params: { stop: 'dropoff' } });
     } else {
@@ -120,10 +149,12 @@ export default function PickLocationScreen() {
   }
 
   const copy = COPY[stop];
-  const busy = moving || resolving || !place;
+  const busy = moving || resolving || !place || !contact;
 
   return (
-    <View className="flex-1 bg-brand-cream">
+    <KeyboardAvoidingView
+      className="flex-1 bg-brand-cream"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="flex-1">
         <Map
           style={{ flex: 1 }}
@@ -181,6 +212,18 @@ export default function PickLocationScreen() {
           </View>
         </View>
 
+        <ContactForm stop={stop} value={contactDraft} onChange={setContactDraft} me={me} />
+        {stop === 'pickup' && (
+          <TextInput
+            value={booking.parcelNotes}
+            onChangeText={booking.setParcelNotes}
+            placeholder="What are you sending? Handling notes (optional)"
+            placeholderTextColor="#0B0F3F80"
+            maxLength={500}
+            className="h-12 rounded-xl border-2 border-brand-navy/15 bg-white px-3 font-poppins text-base text-brand-navy"
+          />
+        )}
+
         <Pressable
           onPress={onConfirm}
           disabled={busy}
@@ -191,7 +234,7 @@ export default function PickLocationScreen() {
           <Text className="font-poppins-semibold text-base text-brand-yellow">{copy.confirm}</Text>
         </Pressable>
       </SafeAreaView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -10,7 +10,8 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "push": "drizzle-kit push",
-    "studio": "drizzle-kit studio"
+    "studio": "drizzle-kit studio",
+    "set-role": "bun scripts/set-role.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

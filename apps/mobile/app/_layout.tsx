@@ -1,5 +1,6 @@
 import '@/global.css';
 
+import { accountGaps } from '@/lib/account';
 import { authClient } from '@/lib/auth-client';
 import { BookingProvider } from '@/lib/booking';
 import { NAV_THEME } from '@/lib/theme';
@@ -19,6 +20,8 @@ export { ErrorBoundary } from 'expo-router';
 
 export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
+  const gaps = session ? accountGaps(session.user) : null;
+  const ready = !!gaps && !gaps.needsPhone && !gaps.needsDetails;
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -33,9 +36,17 @@ export default function RootLayout() {
       <BookingProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={!!session}>
+          <Stack.Protected guard={ready}>
             <Stack.Screen name="index" />
             <Stack.Screen name="pick-location" />
+            <Stack.Screen name="booking/[id]" />
+            <Stack.Protected guard={session?.user.role === 'driver'}>
+              <Stack.Screen name="trip" />
+              <Stack.Screen name="trip-map" />
+            </Stack.Protected>
+          </Stack.Protected>
+          <Stack.Protected guard={!!session && !ready}>
+            <Stack.Screen name="complete-profile" />
           </Stack.Protected>
           <Stack.Protected guard={!session}>
             <Stack.Screen name="sign-in" />

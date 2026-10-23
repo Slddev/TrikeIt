@@ -14,7 +14,7 @@ TrikeIt! solves this by connecting local businesses with neighborhood tricycle d
 
 ### Smart Matching & Delivery
 
-- **Route-Based Barangay Dispatching:** Utilizes mapped routes and assigned TODA (Tricycle Operators and Drivers' Association) zones across Metro Manila barangays to automatically match nearby MSME orders with the appropriate local driver.
+- **Route-Based Barangay Dispatching:** Utilizes mapped routes and assigned TODA (Tricycle Operators and Drivers' Association) zones across barangays nationwide to automatically match nearby MSME orders with the appropriate local driver.
 - **Pasabay Delivery (Dual Passenger & Parcel):** Enables drivers to accept micro-deliveries along their route while carrying regular passengers. This maximizes driver income per trip without disrupting standard passenger service.
 - **Multi-Stop Drop-Offs:** Automatically batches multiple neighborhood orders heading in the same direction, reducing delivery costs for stores and optimizing travel time for drivers.
 

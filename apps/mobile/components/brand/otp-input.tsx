@@ -47,7 +47,9 @@ export function OtpInput({ value, onChange, onComplete, length = 6, error, disab
                       : 'border-transparent'
               )}>
               <Text className="font-poppins-semibold text-2xl text-brand-navy">{char}</Text>
-              {isActive && !char && <View className="absolute h-6 w-0.5 rounded-full bg-brand-navy" />}
+              {isActive && !char && (
+                <View className="absolute h-6 w-0.5 rounded-full bg-brand-navy" />
+              )}
             </View>
           );
         })}
