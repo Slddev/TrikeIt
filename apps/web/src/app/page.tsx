@@ -5,7 +5,7 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 const FAQ = [
   {
     q: "How much does a TrikeIt! delivery cost?",
-    a: "Regular deliveries are ₱12 for the first kilometer and ₱12 for each kilometer after, by road distance. Express deliveries use the whole trike and cost 4× the regular fare.",
+    a: "At launch, fares will follow each local TODA's official fare matrix. For this demo, Regular deliveries are ₱12 for the first kilometer and ₱12 for each kilometer after, by road distance, and Express deliveries use the whole trike and cost 4× the regular fare.",
   },
   {
     q: "What's the difference between Regular and Express?",
@@ -167,6 +167,10 @@ export default function Home() {
               </h2>
               <p className="mt-2 text-brand-navy/70">
                 Pay cash on drop-off or online.
+              </p>
+              <p className="mt-3 inline-block rounded-xl bg-white/80 px-3 py-2 text-sm text-brand-navy/70">
+                <b className="text-brand-navy">Demo fares.</b> At launch, fares
+                will follow each TODA&apos;s official fare matrix.
               </p>
             </div>
             <Fare

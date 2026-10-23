@@ -1,5 +1,6 @@
 // Keep in sync with apps/web/src/lib/fare.ts; the server's fare is the one that's charged.
-// Regular fare: ₱12 for the first km, then ₱12 for each succeeding km or fraction of one.
+// Demo fare: ₱12 for the first km, then ₱12 for each succeeding km or fraction of one. In
+// production this is replaced by each TODA's official fare matrix.
 // A trike has 4 slots; a special trip books all of them, so it costs 4x the regular fare.
 export const TRIP_CAPACITY = 4;
 const REGULAR_FIRST_KM = 12;

@@ -170,7 +170,14 @@ export default function CheckoutScreen() {
         </Pressable>
 
         <View className="gap-3">
-          <Text className="font-poppins-semibold text-base text-brand-navy">Delivery options</Text>
+          <View>
+            <Text className="font-poppins-semibold text-base text-brand-navy">
+              Delivery options
+            </Text>
+            <Text className="font-poppins text-xs text-brand-navy/60">
+              Demo fares · the actual TODA fare matrix applies at launch
+            </Text>
+          </View>
           {OPTIONS.map((option) => {
             const selected = kind === option.kind;
             return (
