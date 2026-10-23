@@ -5,7 +5,7 @@ import { Text } from '@/components/ui/text';
 import { authClient } from '@/lib/auth-client';
 import { SmartphoneIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { BackHandler, KeyboardAvoidingView, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Step = 'welcome' | 'phone' | 'code';
@@ -27,9 +27,7 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-brand-yellow">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView className="flex-1" behavior="padding">
         {step === 'welcome' && <WelcomeStep onPhone={() => setStep('phone')} />}
         {step === 'phone' && (
           <PhoneStep

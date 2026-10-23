@@ -22,7 +22,6 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -152,9 +151,7 @@ export default function PickLocationScreen() {
   const busy = moving || resolving || !place || !contact;
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-brand-cream"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView className="flex-1 bg-brand-cream" behavior="padding">
       <View className="flex-1">
         <Map
           style={{ flex: 1 }}
@@ -186,53 +183,62 @@ export default function PickLocationScreen() {
         </Pressable>
       </View>
 
-      <SafeAreaView edges={['bottom']} className="gap-4 rounded-t-3xl bg-white px-6 pt-5">
-        <View className="flex-row items-start gap-3">
-          <StopDot stop={stop} className="mt-1" />
-          <View className="flex-1 gap-0.5">
-            <Text className="font-poppins text-xs uppercase tracking-wider text-brand-navy/50">
-              {copy.title}
-            </Text>
-            {place && !moving ? (
-              <>
-                <Text className="font-poppins-semibold text-base text-brand-navy" numberOfLines={1}>
-                  {place.title}
-                </Text>
-                {!!place.subtitle && (
-                  <Text className="font-poppins text-sm text-brand-navy/60" numberOfLines={2}>
-                    {place.subtitle}
-                  </Text>
-                )}
-              </>
-            ) : (
-              <Text className="font-poppins text-base text-brand-navy/60">
-                {moving ? 'Move the map to place the pin' : 'Finding address…'}
+      <SafeAreaView edges={['bottom']} className="shrink rounded-t-3xl bg-white">
+        <ScrollView
+          contentContainerClassName="gap-4 px-6 pt-5"
+          keyboardShouldPersistTaps="handled"
+          bounces={false}>
+          <View className="flex-row items-start gap-3">
+            <StopDot stop={stop} className="mt-1" />
+            <View className="flex-1 gap-0.5">
+              <Text className="font-poppins text-xs uppercase tracking-wider text-brand-navy/50">
+                {copy.title}
               </Text>
-            )}
+              {place && !moving ? (
+                <>
+                  <Text
+                    className="font-poppins-semibold text-base text-brand-navy"
+                    numberOfLines={1}>
+                    {place.title}
+                  </Text>
+                  {!!place.subtitle && (
+                    <Text className="font-poppins text-sm text-brand-navy/60" numberOfLines={2}>
+                      {place.subtitle}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text className="font-poppins text-base text-brand-navy/60">
+                  {moving ? 'Move the map to place the pin' : 'Finding address…'}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
 
-        <ContactForm stop={stop} value={contactDraft} onChange={setContactDraft} me={me} />
-        {stop === 'pickup' && (
-          <TextInput
-            value={booking.parcelNotes}
-            onChangeText={booking.setParcelNotes}
-            placeholder="What are you sending? Handling notes (optional)"
-            placeholderTextColor="#0B0F3F80"
-            maxLength={500}
-            className="h-12 rounded-xl border-2 border-brand-navy/15 bg-white px-3 font-poppins text-base text-brand-navy"
-          />
-        )}
+          <ContactForm stop={stop} value={contactDraft} onChange={setContactDraft} me={me} />
+          {stop === 'pickup' && (
+            <TextInput
+              value={booking.parcelNotes}
+              onChangeText={booking.setParcelNotes}
+              placeholder="What are you sending? Handling notes (optional)"
+              placeholderTextColor="#0B0F3F80"
+              maxLength={500}
+              className="h-12 rounded-xl border-2 border-brand-navy/15 bg-white px-3 font-poppins text-base text-brand-navy"
+            />
+          )}
 
-        <Pressable
-          onPress={onConfirm}
-          disabled={busy}
-          className={cn(
-            'mb-2 h-14 items-center justify-center rounded-2xl bg-brand-navy active:opacity-90',
-            busy && 'opacity-40'
-          )}>
-          <Text className="font-poppins-semibold text-base text-brand-yellow">{copy.confirm}</Text>
-        </Pressable>
+          <Pressable
+            onPress={onConfirm}
+            disabled={busy}
+            className={cn(
+              'mb-2 h-14 items-center justify-center rounded-2xl bg-brand-navy active:opacity-90',
+              busy && 'opacity-40'
+            )}>
+            <Text className="font-poppins-semibold text-base text-brand-yellow">
+              {copy.confirm}
+            </Text>
+          </Pressable>
+        </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );

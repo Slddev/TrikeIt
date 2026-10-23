@@ -4,7 +4,7 @@ import { accountGaps } from '@/lib/account';
 import { api } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
 import * as React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Shown after sign-in until the account has a verified phone, a name and an email.
@@ -17,9 +17,7 @@ export default function CompleteProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-brand-yellow">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView className="flex-1" behavior="padding">
         {needsPhone ? (
           phone ? (
             <CodeStep phone={phone} onBack={() => setPhone(null)} attach />
