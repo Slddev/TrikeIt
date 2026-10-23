@@ -6,6 +6,14 @@ import { db } from "@trikeit/db";
 import { isValidPhoneNumber } from "@/lib/phone";
 import { sendOtpSms } from "@/lib/sms";
 
+// Demo mode: no SMS is sent and every number signs in with this one code.
+// Never set it on the real production deployment.
+const demoOtpCode = process.env.DEMO_OTP_CODE;
+if (demoOtpCode) {
+  if (!/^\d{6}$/.test(demoOtpCode)) throw new Error("DEMO_OTP_CODE must be exactly 6 digits.");
+  console.warn("[auth] Demo mode is on: SMS is disabled and every phone number accepts DEMO_OTP_CODE.");
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
   socialProviders: {
@@ -16,7 +24,11 @@ export const auth = betterAuth({
   },
   plugins: [
     phoneNumber({
-      sendOTP: ({ phoneNumber, code }) => sendOtpSms(phoneNumber, code),
+      sendOTP: ({ phoneNumber, code }) =>
+        demoOtpCode
+          ? console.log(`[sms:demo] skipped SMS to ${phoneNumber}`)
+          : sendOtpSms(phoneNumber, code),
+      ...(demoOtpCode && { verifyOTP: ({ code }) => code === demoOtpCode }),
       phoneNumberValidator: isValidPhoneNumber,
       // Verifying a code for a new number creates the account; an existing one signs in.
       signUpOnVerification: {
