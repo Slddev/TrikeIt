@@ -13,6 +13,7 @@ import {
   isActionable,
   isDone,
   orderStops,
+  payAt,
   type TripStop,
 } from '@/lib/trip-stops';
 import { usePoll } from '@/lib/use-poll';
@@ -57,7 +58,9 @@ export default function TripScreen() {
   }
 
   const cash =
-    trip?.bookings.filter((b) => b.payment === 'cod').reduce((sum, b) => sum + b.fare, 0) ?? 0;
+    trip?.bookings
+      .filter((b) => b.payment === 'cod')
+      .reduce((sum, b) => sum + b.fare + b.itemsTotal, 0) ?? 0;
 
   return (
     <Gradient colors={['#F3D873', '#FFF3C4', '#FFFFFF']} style={{ flex: 1 }}>
@@ -216,6 +219,19 @@ function StopRow({
         {cashAt(stop) > 0 && !done && (
           <Text className="mt-1 font-poppins-semibold text-xs text-brand-navy">
             Collect ₱{cashAt(stop)} cash
+          </Text>
+        )}
+        {payAt(stop) > 0 && !done && (
+          <Text className="mt-1 font-poppins-semibold text-xs text-brand-navy">
+            Pay the store ₱{payAt(stop)}
+          </Text>
+        )}
+        {stop.stop === 'pickup' && booking.items.length > 0 && (
+          <Text className="mt-1 font-poppins-medium text-xs text-brand-navy" numberOfLines={4}>
+            Order:{' '}
+            {booking.items
+              .map((i) => `${i.qty}× ${i.name}${i.note ? ` (${i.note})` : ''}`)
+              .join(', ')}
           </Text>
         )}
         {stop.stop === 'pickup' && !!booking.parcelNotes && (

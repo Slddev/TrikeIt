@@ -70,7 +70,9 @@ export default function BookingScreen() {
             className="h-11 w-11 items-center justify-center rounded-full bg-white/70 active:bg-white">
             <ArrowLeftIcon size={22} color="#0B0F3F" />
           </Pressable>
-          <Text className="font-poppins-bold text-xl text-brand-navy">Your delivery</Text>
+          <Text className="font-poppins-bold text-xl text-brand-navy">
+            {shown?.order ? 'Your order' : 'Your delivery'}
+          </Text>
         </View>
 
         {!shown ? (
@@ -102,7 +104,7 @@ export default function BookingScreen() {
                 disabled={busy}
                 className="h-14 items-center justify-center rounded-2xl border-2 border-brand-navy active:bg-white/60">
                 <Text className="font-poppins-semibold text-base text-brand-navy">
-                  Cancel delivery
+                  {shown.order ? 'Cancel order' : 'Cancel delivery'}
                 </Text>
               </Pressable>
             ) : shown.status !== 'active' ? (
@@ -128,11 +130,15 @@ function StatusCard({
   onBuy: (slots: number) => void;
   busy: boolean;
 }) {
-  const { trip } = booking;
+  const { trip, order } = booking;
+  const owed = booking.total + (order?.itemsTotal ?? 0);
 
   if (booking.status === 'cancelled') {
     return (
-      <Card title="Delivery cancelled" body="This delivery was cancelled. You weren't charged." />
+      <Card
+        title={order ? 'Order cancelled' : 'Delivery cancelled'}
+        body={`This ${order ? 'order' : 'delivery'} was cancelled. You weren't charged.`}
+      />
     );
   }
   if (booking.status === 'completed') {
@@ -140,9 +146,11 @@ function StatusCard({
       <Card
         title="Delivered"
         body={
-          booking.payer === 'recipient'
-            ? `${booking.recipient.name} received the parcel and paid ₱${booking.total} in cash.`
-            : `${booking.recipient.name} received the parcel. Thanks for sending with TrikeIt!`
+          order
+            ? `Your order from ${order.merchantName} arrived. Enjoy!`
+            : booking.payer === 'recipient'
+              ? `${booking.recipient.name} received the parcel and paid ₱${owed} in cash.`
+              : `${booking.recipient.name} received the parcel. Thanks for sending with TrikeIt!`
         }
       />
     );
@@ -152,8 +160,8 @@ function StatusCard({
     case 'filling':
       return (
         <Card
-          title="Batching your parcel"
-          body="Your parcel goes out once 4 slots heading your way are booked.">
+          title={order ? 'Waiting for a trike…' : 'Batching your parcel'}
+          body={`Your ${order ? 'order' : 'parcel'} goes out once ${trip.capacity} slots heading your way are booked.`}>
           <SlotMeter filled={trip.slotsFilled} capacity={trip.capacity} />
           {booking.buyout && <BuySlotsCard buyout={booking.buyout} busy={busy} onBuy={onBuy} />}
         </Card>
@@ -161,8 +169,8 @@ function StatusCard({
     case 'ready':
       return (
         <Card
-          title="Finding a rider"
-          body="The trike is full and has been sent to approved riders nearby.">
+          title={order ? 'Waiting for a trike…' : 'Finding a rider'}
+          body="Your trip has been sent to approved riders nearby.">
           <ActivityIndicator color="#0B0F3F" />
         </Card>
       );
@@ -170,11 +178,19 @@ function StatusCard({
     case 'in_progress':
       return (
         <Card
-          title={booking.pickedUp ? 'Out for delivery' : 'Rider on the way to pick up'}
+          title={
+            booking.pickedUp
+              ? 'Out for delivery'
+              : order
+                ? 'Found your rider!'
+                : 'Rider on the way to pick up'
+          }
           body={
             booking.pickedUp
               ? `Heading to ${booking.recipient.name} at the drop-off.`
-              : 'Have the parcel ready at the pick-up point. The rider may collect others first.'
+              : order
+                ? `They're picking up your order at ${order.merchantName}. Have ₱${owed} in cash ready.`
+                : 'Have the parcel ready at the pick-up point. The rider may collect others first.'
           }>
           {booking.driver && <DriverCard driver={booking.driver} />}
         </Card>
@@ -185,6 +201,7 @@ function StatusCard({
 }
 
 function DetailsCard({ booking }: { booking: Booking }) {
+  if (booking.order) return <OrderCard booking={booking} order={booking.order} />;
   return (
     <View className="gap-4 rounded-3xl bg-white p-5">
       <View className="gap-3">
@@ -202,7 +219,7 @@ function DetailsCard({ booking }: { booking: Booking }) {
         value={`${booking.recipient.name} · ${formatE164(booking.recipient.phone)}`}
       />
       {!!booking.parcelNotes && <Row label="Parcel" value={booking.parcelNotes} />}
-      <Row label="Type" value={booking.kind === 'special' ? 'Special' : 'Regular'} />
+      <Row label="Type" value={booking.kind === 'special' ? 'Express' : 'Regular'} />
       <Row label="Distance" value={`${booking.distanceKm.toFixed(1)} km`} />
       <Row
         label="Payment"
@@ -217,6 +234,44 @@ function DetailsCard({ booking }: { booking: Booking }) {
         value={`₱${booking.total}`}
         strong
       />
+    </View>
+  );
+}
+
+function OrderCard({ booking, order }: { booking: Booking; order: NonNullable<Booking['order']> }) {
+  return (
+    <View className="gap-4 rounded-3xl bg-white p-5">
+      <View>
+        <Text className="font-poppins-bold text-lg text-brand-navy">{order.merchantName}</Text>
+        <Text className="font-poppins text-xs text-brand-navy/60">
+          {booking.kind === 'special' ? 'Express' : 'Regular'} delivery
+        </Text>
+      </View>
+      <View className="gap-2">
+        {order.items.map((item) => (
+          <View key={item.itemId} className="flex-row items-start justify-between gap-4">
+            <View className="flex-1">
+              <Text className="font-poppins-medium text-sm text-brand-navy">
+                {item.qty}× {item.name}
+              </Text>
+              {!!item.note && (
+                <Text className="font-poppins text-xs text-brand-navy/60">{item.note}</Text>
+              )}
+            </View>
+            <Text className="font-poppins-medium text-sm text-brand-navy">
+              ₱{item.price * item.qty}
+            </Text>
+          </View>
+        ))}
+      </View>
+      <View className="h-px bg-brand-navy/10" />
+      <Row label="Subtotal" value={`₱${order.itemsTotal}`} />
+      <Row
+        label={`Delivery fee · ${booking.distanceKm.toFixed(1)} km`}
+        value={`₱${booking.total}`}
+      />
+      <PlaceRow stop="dropoff" title={booking.dropoff.title} subtitle={booking.dropoff.subtitle} />
+      <Row label="Total · cash on delivery" value={`₱${order.itemsTotal + booking.total}`} strong />
     </View>
   );
 }

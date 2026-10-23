@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
@@ -30,7 +31,7 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export type UserRole = "customer" | "driver" | "admin";
+export type UserRole = "customer" | "driver" | "merchant" | "admin";
 
 // Vehicle details for users an admin has approved as drivers (user.role = "driver").
 export const driver = pgTable("driver", {
@@ -51,6 +52,53 @@ export const driver = pgTable("driver", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+// A store run by a user with role "merchant". Customers order from its menu in the app.
+export const merchant = pgTable("merchant", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: text("owner_id")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  addressTitle: text("address_title").notNull().default(""),
+  addressSubtitle: text("address_subtitle").notNull().default(""),
+  // Null until the merchant sets the store's location; it isn't listed without one.
+  lng: doublePrecision("lng"),
+  lat: doublePrecision("lat"),
+  coverUrl: text("cover_url").notNull().default(""),
+  logoUrl: text("logo_url").notNull().default(""),
+  open: boolean("open").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const menuItem = pgTable(
+  "menu_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: uuid("merchant_id")
+      .notNull()
+      .references(() => merchant.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    price: integer("price").notNull(),
+    imageUrl: text("image_url").notNull().default(""),
+    // Featured items get their own list under the "For You" grid.
+    featured: boolean("featured").notNull().default(false),
+    available: boolean("available").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("menu_item_merchant_idx").on(t.merchantId)],
+);
+
+// Copied onto the booking when ordered, so later menu edits don't change past orders.
+export type OrderItem = { itemId: string; name: string; price: number; qty: number; note: string };
 
 export type TripKind = "regular" | "special";
 // filling: regular trip waiting for slots · ready: full, shown to riders ·
@@ -112,6 +160,10 @@ export const booking = pgTable(
     recipientName: text("recipient_name").notNull().default(""),
     recipientPhone: text("recipient_phone").notNull().default(""),
     parcelNotes: text("parcel_notes").notNull().default(""),
+    // Set for merchant orders: the rider pays the store at pick-up and collects it back on delivery.
+    merchantId: uuid("merchant_id").references(() => merchant.id),
+    items: jsonb("items").$type<OrderItem[]>().notNull().default([]),
+    itemsTotal: integer("items_total").notNull().default(0),
     distanceKm: doublePrecision("distance_km").notNull(),
     // Pesos for one slot; the booking pays slotFare * slots.
     slotFare: integer("slot_fare").notNull(),
@@ -126,6 +178,7 @@ export const booking = pgTable(
   (t) => [
     index("booking_user_idx").on(t.userId),
     index("booking_trip_idx").on(t.tripId),
+    index("booking_merchant_idx").on(t.merchantId),
     // A user can only have one booking in progress at a time.
     uniqueIndex("booking_one_active_per_user").on(t.userId).where(sql`${t.status} = 'active'`),
   ],

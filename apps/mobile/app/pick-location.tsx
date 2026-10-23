@@ -3,7 +3,8 @@ import { StopDot } from '@/components/brand/stop-dot';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { authClient } from '@/lib/auth-client';
-import { useBooking, type Stop } from '@/lib/booking';
+import { useBooking, type BookingStop, type Stop } from '@/lib/booking';
+import { useCart } from '@/lib/cart';
 import { MAP_STYLE } from '@/lib/map';
 import { reverseGeocode, searchPlaces, type Place } from '@/lib/places';
 import { cn } from '@/lib/utils';
@@ -42,12 +43,21 @@ const COPY: Record<Stop, { title: string; confirm: string; search: string }> = {
     search: 'Search drop-off location',
   },
 };
+const ORDER_COPY = {
+  title: 'Deliver my order to',
+  confirm: 'Deliver here',
+  search: 'Search your address',
+};
 
 export default function PickLocationScreen() {
-  const { stop = 'pickup' } = useLocalSearchParams<{ stop?: Stop }>();
+  // `for=order` sets where merchant orders go instead of a parcel's stop.
+  const params = useLocalSearchParams<{ stop?: Stop; for?: 'order' }>();
+  const forOrder = params.for === 'order';
+  const stop = forOrder ? 'dropoff' : (params.stop ?? 'pickup');
   const booking = useBooking();
-  const existing = booking[stop];
-  const other = booking[stop === 'pickup' ? 'dropoff' : 'pickup'];
+  const cart = useCart();
+  const existing = forOrder ? cart.address : booking[stop];
+  const other = forOrder ? null : booking[stop === 'pickup' ? 'dropoff' : 'pickup'];
 
   const cameraRef = React.useRef<CameraRef>(null);
   const [place, setPlace] = React.useState<Place | null>(existing);
@@ -65,7 +75,7 @@ export default function PickLocationScreen() {
           name: existing.contact.isMe ? '' : existing.contact.name,
           phone: existing.contact.isMe ? '' : existing.contact.phone,
         }
-      : { isMe: stop === 'pickup', name: '', phone: '' }
+      : { isMe: stop === 'pickup' || forOrder, name: '', phone: '' }
   );
   const contact = resolveContact(contactDraft, me);
 
@@ -134,12 +144,18 @@ export default function PickLocationScreen() {
 
   function onConfirm() {
     if (!place || !contact) return;
-    booking.setStop(stop, {
+    const chosen: BookingStop = {
       coords: place.coords,
       title: place.title,
       subtitle: place.subtitle,
       contact,
-    });
+    };
+    if (forOrder) {
+      cart.setAddress(chosen);
+      router.back();
+      return;
+    }
+    booking.setStop(stop, chosen);
     if (stop === 'pickup' && !booking.dropoff) {
       router.replace({ pathname: '/pick-location', params: { stop: 'dropoff' } });
     } else {
@@ -147,7 +163,7 @@ export default function PickLocationScreen() {
     }
   }
 
-  const copy = COPY[stop];
+  const copy = forOrder ? ORDER_COPY : COPY[stop];
   const busy = moving || resolving || !place || !contact;
 
   return (

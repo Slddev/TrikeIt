@@ -1,15 +1,16 @@
-import { SlotMeter } from '@/components/booking/slot-meter';
+import { ActiveBookingBanner } from '@/components/booking/active-booking-banner';
 import { Gradient } from '@/components/brand/gradient';
 import { Logo } from '@/components/brand/logo';
 import { RouteMap } from '@/components/brand/route-map';
 import { StopDot } from '@/components/brand/stop-dot';
 import { DriverHome } from '@/components/driver/driver-home';
+import { MerchantsTab } from '@/components/merchant/merchants-tab';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { api, type Booking, type BookingKind, type Payer, type PaymentMethod } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
 import { useBooking, type BookingStop, type Stop } from '@/lib/booking';
-import { slotFare, TRIP_CAPACITY } from '@/lib/fare';
+import { deliveryFare, TRIP_CAPACITY } from '@/lib/fare';
 import { formatE164 } from '@/lib/phone';
 import { distanceKm } from '@/lib/places';
 import { usePoll } from '@/lib/use-poll';
@@ -19,7 +20,6 @@ import { router } from 'expo-router';
 import {
   BanknoteIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   ClockIcon,
   PackageIcon,
   PlusIcon,
@@ -41,12 +41,8 @@ const SERVICES: Record<BookingKind, { title: string; blurb: string }> = {
     title: 'Regular',
     blurb: `Batched · goes out when ${TRIP_CAPACITY} parcels fill the trike`,
   },
-  special: { title: 'Special', blurb: 'Dedicated trike · goes out right away' },
+  special: { title: 'Express', blurb: 'Dedicated trike · goes out right away' },
 };
-
-function fareFor(kind: BookingKind, km: number) {
-  return slotFare(km) * (kind === 'special' ? TRIP_CAPACITY : 1);
-}
 
 export default function HomeScreen() {
   const { data: session } = authClient.useSession();
@@ -203,7 +199,7 @@ function DeliveryTab() {
             <ServiceOption
               key={key}
               kind={key}
-              fare={km === null ? null : fareFor(key, km)}
+              fare={km === null ? null : deliveryFare(key, km)}
               selected={kind === key}
               onPress={() => setKind(key)}
             />
@@ -214,7 +210,7 @@ function DeliveryTab() {
       {km !== null && kind && pickup && dropoff && !active?.booking && (
         <CheckoutPanel
           kind={kind}
-          fare={fareFor(kind, km)}
+          fare={deliveryFare(kind, km)}
           payment={payment}
           onPayment={setPayment}
           payer={payer}
@@ -225,37 +221,6 @@ function DeliveryTab() {
         />
       )}
     </View>
-  );
-}
-
-function ActiveBookingBanner({ booking }: { booking: Booking }) {
-  const { trip } = booking;
-  const label =
-    trip.status === 'filling'
-      ? 'Batching your parcel'
-      : trip.status === 'ready'
-        ? 'Finding a rider'
-        : booking.pickedUp
-          ? 'Out for delivery'
-          : 'Rider on the way to pick up';
-
-  return (
-    <Pressable
-      onPress={() => router.push({ pathname: '/booking/[id]', params: { id: booking.id } })}
-      className="gap-3 rounded-3xl bg-white p-5 active:opacity-90">
-      <View className="flex-row items-center justify-between">
-        <View className="flex-1">
-          <Text className="font-poppins text-xs uppercase tracking-wider text-brand-navy/50">
-            Delivery in progress
-          </Text>
-          <Text className="font-poppins-bold text-lg text-brand-navy">{label}</Text>
-        </View>
-        <Icon as={ChevronRightIcon} size={24} className="text-brand-navy" />
-      </View>
-      {trip.status === 'filling' && (
-        <SlotMeter filled={trip.slotsFilled} capacity={trip.capacity} />
-      )}
-    </Pressable>
   );
 }
 
@@ -522,20 +487,6 @@ function Choices<K extends string>({
           </Pressable>
         );
       })}
-    </View>
-  );
-}
-
-function MerchantsTab() {
-  return (
-    <View className="flex-1 items-center justify-center gap-3 px-10">
-      <Icon as={StoreIcon} size={40} className="text-brand-navy/40" />
-      <Text className="text-center font-poppins-semibold text-lg text-brand-navy">
-        Merchants are coming soon
-      </Text>
-      <Text className="text-center font-poppins text-sm text-brand-navy/60">
-        Order from stores near you and have a trike bring it over.
-      </Text>
     </View>
   );
 }

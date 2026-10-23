@@ -256,7 +256,10 @@ function OpenTripCard({
   onAccept: () => void;
   onDecline: () => void;
 }) {
-  const cash = trip.bookings.filter((b) => b.payment === 'cod').reduce((sum, b) => sum + b.fare, 0);
+  const cash = trip.bookings
+    .filter((b) => b.payment === 'cod')
+    .reduce((sum, b) => sum + b.fare + b.itemsTotal, 0);
+  const storeCash = trip.bookings.reduce((sum, b) => sum + b.itemsTotal, 0);
   const first = trip.bookings[0];
 
   return (
@@ -278,7 +281,7 @@ function OpenTripCard({
               trip.kind === 'special' ? 'text-brand-yellow' : 'text-brand-navy'
             )}>
             {trip.kind === 'special'
-              ? 'Special'
+              ? 'Express'
               : `Regular · ${trip.bookings.length} parcel${trip.bookings.length === 1 ? '' : 's'}`}
           </Text>
         </View>
@@ -302,6 +305,11 @@ function OpenTripCard({
         />
       </View>
 
+      {storeCash > 0 && (
+        <Text className="font-poppins-medium text-xs text-brand-navy">
+          Store order: you pay ₱{storeCash} at pick-up and get it back on delivery
+        </Text>
+      )}
       {cash > 0 && (
         <Text className="font-poppins text-xs text-brand-navy/60">₱{cash} to collect in cash</Text>
       )}

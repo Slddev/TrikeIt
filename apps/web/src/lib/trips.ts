@@ -223,6 +223,9 @@ async function toDriverTrips(trips: TripRow[], { withContact }: { withContact: b
           recipientName: b.recipientName,
           recipientPhone: withContact ? b.recipientPhone : null,
           parcelNotes: b.parcelNotes,
+          // Merchant orders: what to buy at the store, paid by the rider and collected on delivery.
+          items: b.items,
+          itemsTotal: b.itemsTotal,
           slots: b.slots,
           fare: b.slotFare * b.slots,
           payment: b.payment,

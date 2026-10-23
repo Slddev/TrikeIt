@@ -3,11 +3,12 @@
 import { useActionState, useState } from "react";
 import { changeRole, type RoleChangeState } from "./actions";
 
-type Role = "customer" | "driver" | "admin";
+type Role = "customer" | "driver" | "merchant" | "admin";
 
 const ROLES: { value: Role; label: string }[] = [
   { value: "customer", label: "Customer" },
   { value: "driver", label: "Rider" },
+  { value: "merchant", label: "Merchant" },
   { value: "admin", label: "Admin" },
 ];
 

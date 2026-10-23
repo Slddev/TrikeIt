@@ -3,6 +3,7 @@ import '@/global.css';
 import { accountGaps } from '@/lib/account';
 import { authClient } from '@/lib/auth-client';
 import { BookingProvider } from '@/lib/booking';
+import { CartProvider } from '@/lib/cart';
 import { NAV_THEME } from '@/lib/theme';
 import {
   Poppins_400Regular,
@@ -34,25 +35,30 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={NAV_THEME.light}>
       <BookingProvider>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={ready}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="pick-location" />
-            <Stack.Screen name="booking/[id]" />
-            <Stack.Protected guard={session?.user.role === 'driver'}>
-              <Stack.Screen name="trip" />
-              <Stack.Screen name="trip-map" />
+        <CartProvider>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Protected guard={ready}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="pick-location" />
+              <Stack.Screen name="booking/[id]" />
+              <Stack.Screen name="merchant/[id]" />
+              <Stack.Screen name="merchant/item" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="checkout" />
+              <Stack.Protected guard={session?.user.role === 'driver'}>
+                <Stack.Screen name="trip" />
+                <Stack.Screen name="trip-map" />
+              </Stack.Protected>
             </Stack.Protected>
-          </Stack.Protected>
-          <Stack.Protected guard={!!session && !ready}>
-            <Stack.Screen name="complete-profile" />
-          </Stack.Protected>
-          <Stack.Protected guard={!session}>
-            <Stack.Screen name="sign-in" />
-          </Stack.Protected>
-        </Stack>
-        <PortalHost />
+            <Stack.Protected guard={!!session && !ready}>
+              <Stack.Screen name="complete-profile" />
+            </Stack.Protected>
+            <Stack.Protected guard={!session}>
+              <Stack.Screen name="sign-in" />
+            </Stack.Protected>
+          </Stack>
+          <PortalHost />
+        </CartProvider>
       </BookingProvider>
     </ThemeProvider>
   );

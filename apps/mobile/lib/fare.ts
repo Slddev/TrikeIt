@@ -9,3 +9,8 @@ const REGULAR_PER_SUCCEEDING_KM = 12;
 export function slotFare(km: number) {
   return REGULAR_FIRST_KM + REGULAR_PER_SUCCEEDING_KM * Math.max(0, Math.ceil(km - 1));
 }
+
+/** What a new booking of this kind costs over a road distance. */
+export function deliveryFare(kind: 'regular' | 'special', km: number) {
+  return slotFare(km) * (kind === 'special' ? TRIP_CAPACITY : 1);
+}

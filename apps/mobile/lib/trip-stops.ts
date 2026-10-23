@@ -58,5 +58,12 @@ export function contactAt({ stop, booking }: TripStop) {
 export function cashAt({ stop, booking }: TripStop) {
   if (booking.payment !== 'cod') return 0;
   const collectHere = booking.payer === 'recipient' ? stop === 'dropoff' : stop === 'pickup';
-  return collectHere ? booking.fare : 0;
+  if (!collectHere) return 0;
+  // Merchant orders: the rider bought the items at the store, so the customer pays those back too.
+  return booking.fare + (stop === 'dropoff' ? booking.itemsTotal : 0);
+}
+
+/** Cash the rider hands the store for a merchant order at its pick-up. */
+export function payAt({ stop, booking }: TripStop) {
+  return stop === 'pickup' ? booking.itemsTotal : 0;
 }

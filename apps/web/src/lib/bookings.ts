@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
-import { booking, db, driver, trip, user } from "@trikeit/db";
+import { booking, db, driver, merchant, trip, user, type OrderItem } from "@trikeit/db";
 import { ApiError } from "@/lib/api";
 import { slotFare, TRIP_CAPACITY } from "@/lib/fare";
 import { distanceKm, roadDistanceKm, type LngLat } from "@/lib/geo";
@@ -38,13 +38,14 @@ export type BookingView = Awaited<ReturnType<typeof getBooking>>;
 
 export async function getBooking(userId: string, bookingId: string) {
   const [row] = await db
-    .select({ booking, trip })
+    .select({ booking, trip, merchantName: merchant.name })
     .from(booking)
     .innerJoin(trip, eq(booking.tripId, trip.id))
+    .leftJoin(merchant, eq(booking.merchantId, merchant.id))
     .where(and(eq(booking.id, bookingId), eq(booking.userId, userId)))
     .limit(1);
   if (!row) throw new ApiError(404, "Booking not found.");
-  const { booking: b, trip: t } = row;
+  const { booking: b, trip: t, merchantName } = row;
 
   const [assigned] = t.driverId
     ? await db
@@ -87,6 +88,9 @@ export async function getBooking(userId: string, bookingId: string) {
     recipient: { name: b.recipientName, phone: b.recipientPhone },
     payer: b.payer,
     parcelNotes: b.parcelNotes,
+    order: b.merchantId
+      ? { merchantId: b.merchantId, merchantName: merchantName ?? b.senderName, items: b.items, itemsTotal: b.itemsTotal }
+      : null,
     trip: { status: t.status, slotsFilled: t.slotsFilled, capacity: t.capacity },
     // A batched trip can be under way before this parcel is picked up.
     pickedUp: !!b.pickedUpAt,
@@ -108,7 +112,13 @@ export async function getActiveBooking(userId: string) {
   return active ? getBooking(userId, active.id) : null;
 }
 
-export async function createBooking(userId: string, input: z.infer<typeof createBookingInput>) {
+export type MerchantOrder = { merchantId: string; items: OrderItem[]; itemsTotal: number };
+
+export async function createBooking(
+  userId: string,
+  input: z.infer<typeof createBookingInput>,
+  order?: MerchantOrder,
+) {
   if (await getActiveBooking(userId)) {
     throw new ApiError(409, "You already have a delivery in progress.");
   }
@@ -148,6 +158,7 @@ export async function createBooking(userId: string, input: z.infer<typeof create
         recipientName: input.dropoff.contact.name,
         recipientPhone: input.dropoff.contact.phone,
         parcelNotes: input.parcelNotes,
+        ...order,
       })
       .returning({ id: booking.id });
   } catch (error) {

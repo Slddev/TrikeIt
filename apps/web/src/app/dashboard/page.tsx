@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/logo";
 import { requireUser } from "@/lib/session";
 import { accountGaps, PLACEHOLDER_EMAIL_DOMAIN } from "@/lib/profile";
 import { AccountSetup } from "./account-setup";
+import { MerchantConsole } from "./merchant-console";
 import { RoleEditor } from "./role-editor";
 import { SignOutButton } from "./sign-out-button";
 
@@ -53,6 +54,8 @@ async function Dashboard({ searchParams }: Pick<PageProps<"/dashboard">, "search
         <AccountSetup needsPhone={gaps.needsPhone} needsDetails={gaps.needsDetails} name={me.name} />
       ) : me.role === "admin" ? (
         <AdminConsole adminId={me.id} query={typeof q === "string" ? q.trim() : ""} />
+      ) : me.role === "merchant" ? (
+        <MerchantConsole ownerId={me.id} />
       ) : (
         <MemberHome role={me.role ?? "customer"} />
       )}
@@ -60,7 +63,7 @@ async function Dashboard({ searchParams }: Pick<PageProps<"/dashboard">, "search
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { customer: "Customer", driver: "Rider", admin: "Admin" };
+const ROLE_LABEL: Record<string, string> = { customer: "Customer", driver: "Rider", merchant: "Merchant", admin: "Admin" };
 
 function MemberHome({ role }: { role: string }) {
   return (
@@ -94,7 +97,7 @@ async function AdminConsole({ adminId, query }: { adminId: string; query: string
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold">Users</h2>
-            <p className="text-sm text-brand-navy/60">Change roles. Riders need a plate number.</p>
+            <p className="text-sm text-brand-navy/60">Change roles. Riders need a plate number; merchants get a store to set up.</p>
           </div>
           <form className="flex w-full gap-2 sm:w-auto">
             <input
@@ -163,7 +166,7 @@ async function AdminConsole({ adminId, query }: { adminId: string; query: string
 type UserRowData = Awaited<ReturnType<typeof searchUsers>>[number];
 
 function UserRow({ user: u, isSelf }: { user: UserRowData; isSelf: boolean }) {
-  const role = (u.role ?? "customer") as "customer" | "driver" | "admin";
+  const role = (u.role ?? "customer") as "customer" | "driver" | "merchant" | "admin";
 
   return (
     <li className="flex flex-col gap-4 rounded-2xl bg-white p-4 sm:p-5">
@@ -210,7 +213,7 @@ function RoleBadge({ role }: { role: string }) {
   const style =
     role === "admin"
       ? "bg-brand-navy text-brand-yellow"
-      : role === "driver"
+      : role === "driver" || role === "merchant"
         ? "bg-brand-gold text-brand-navy"
         : "bg-brand-navy/10 text-brand-navy";
   return (

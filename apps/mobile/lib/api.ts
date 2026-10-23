@@ -6,6 +6,32 @@ export type Payer = 'sender' | 'recipient';
 export type TripStatus =
   'filling' | 'ready' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 export type ApiPlace = { lng: number; lat: number; title: string; subtitle: string };
+export type OrderItem = { itemId: string; name: string; price: number; qty: number; note: string };
+
+// Mirrors listMerchants() and getMerchant() in apps/web/src/lib/merchants.ts.
+export type MerchantSummary = {
+  id: string;
+  name: string;
+  description: string;
+  addressTitle: string;
+  addressSubtitle: string;
+  coverUrl: string;
+  logoUrl: string;
+  lng: number;
+  lat: number;
+  distanceKm: number | null;
+};
+
+export type MenuItem = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  featured: boolean;
+};
+
+export type Merchant = Omit<MerchantSummary, 'distanceKm'> & { items: MenuItem[] };
 
 // Mirrors getBooking() in apps/web/src/lib/bookings.ts.
 export type Booking = {
@@ -23,6 +49,13 @@ export type Booking = {
   recipient: { name: string; phone: string };
   payer: Payer;
   parcelNotes: string;
+  // Set for merchant orders; the recipient pays itemsTotal + total in cash on delivery.
+  order: {
+    merchantId: string;
+    merchantName: string;
+    items: OrderItem[];
+    itemsTotal: number;
+  } | null;
   trip: { status: TripStatus; slotsFilled: number; capacity: number };
   pickedUp: boolean;
   // Empty slots the sender may pay for, and when someone last joined the trip.
@@ -52,6 +85,9 @@ export type DriverTrip = {
     recipientName: string;
     recipientPhone: string | null;
     parcelNotes: string;
+    // Merchant orders: the rider pays the store itemsTotal at pick-up and collects it on delivery.
+    items: OrderItem[];
+    itemsTotal: number;
     slots: number;
     fare: number;
     payment: PaymentMethod;
